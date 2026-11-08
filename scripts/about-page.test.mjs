@@ -13,6 +13,8 @@ test("关于页只读 PROVIDER_FAMILIES，必写两句在，不含密钥和 comp
   assert.match(about, /主导人：Leo Lee/);
   assert.match(about, /本软件由主导人使用 Grok Bot 合作制作/);
   assert.match(about, /Copyright \(c\) 2026 Leo Lee/);
+  assert.doesNotMatch(about, /存放在中华人民共和国境内的服务器上/);
+  assert.match(about, /不把它写成已经完成的事实/);
   assert.doesNotMatch(about, /备案单位|entity/);
 });
 test("公开视图 8 家备案号可公示（无占位符）", () => {
