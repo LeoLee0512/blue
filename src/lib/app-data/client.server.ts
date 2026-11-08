@@ -6,6 +6,7 @@ import {
 } from "../auth/isolation.server.ts";
 import { env, isWorkspacePreview } from "../env.server.ts";
 import { assertAppDataServerOnly } from "./server-only.ts";
+import { publicConnectorError } from "./errors.ts";
 import {
   CONNECTOR_TOKEN_HEADER,
   CONNECTOR_TOKEN_PENDING_CODE,
@@ -161,7 +162,7 @@ async function gatePost(
     } catch {
       json = {
         ok: false,
-        errorMessage: `gate non-JSON response (HTTP ${res.status}): ${text.slice(0, 200)}`,
+        errorMessage: "connector_bad_response",
       };
     }
   }
@@ -229,16 +230,12 @@ function unauthorizedResult(
     noteTokenRejected(token);
     return pendingTokenResult(PENDING_TOKEN_REJECTED);
   }
-  const loginUrl =
-    gateSigninUrl(ctx) ??
-    (typeof json.loginUrl === "string" && json.loginUrl
-      ? json.loginUrl
-      : undefined);
+  const loginUrl = gateSigninUrl(ctx);
   return {
     ok: false,
     data: null,
     loginRequired: true,
-    errorMessage: json.errorMessage ?? "login required",
+    errorMessage: publicConnectorError(typeof json.errorMessage === "string" ? json.errorMessage : "login required"),
     ...(loginUrl ? { loginUrl } : {}),
   };
 }
@@ -249,7 +246,7 @@ function crossSiteBlockedResult(): CallToolResult | null {
     return null;
   } catch (e) {
     if (e instanceof CrossSiteRequestError) {
-      return { ok: false, data: null, errorMessage: e.message };
+      return { ok: false, data: null, errorMessage: publicConnectorError(e.message) };
     }
     return null;
   }
@@ -370,7 +367,7 @@ export async function callTool(
     return memoized;
   }
   const fail = (errorMessage: string): CallToolResult =>
-    memoizeFailure(memoKey, { ok: false, data: null, errorMessage });
+    memoizeFailure(memoKey, { ok: false, data: null, errorMessage: publicConnectorError(errorMessage) });
   if (connectorType === ConnectorType.Mcp && !options?.connectorCatalogId) {
     return {
       ok: false,

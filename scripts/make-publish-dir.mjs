@@ -52,6 +52,75 @@ export function includeInPublish(rel, isDirectory = false) {
   return ALLOW_PREFIX.some((prefix) => norm.startsWith(prefix));
 }
 
+const INSTALL_UNAVAILABLE = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>安装引导不可用</title>
+</head>
+<body>
+  <p>此发布包不包含平台安装页。</p>
+  <p><a href="/">返回首页</a></p>
+</body>
+</html>
+`;
+
+const GENERATED_ROUTES = new Set(["/__grok/manifest.webmanifest", "/__grok/manifest.json"]);
+
+/** Hide platform install assets that this package does not ship. */
+export function neutralizePlatformInstall(dest) {
+  const install = path.join(dest, "scripts/install-page.html");
+  if (fs.existsSync(install)) fs.writeFileSync(install, INSTALL_UNAVAILABLE);
+  const rewrite = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const full = path.join(dir, name);
+      if (fs.statSync(full).isDirectory()) {
+        rewrite(full);
+        continue;
+      }
+      if (full === install) continue;
+      if (!/\.(mjs|ts|tsx|html|css|js)$/.test(name)) continue;
+      if (name.includes(".test.")) continue;
+      const text = fs.readFileSync(full, "utf8");
+      const next = text.replaceAll("/__grok/icon-180.png", "/favicon.svg");
+      if (next !== text) fs.writeFileSync(full, next);
+    }
+  };
+  rewrite(dest);
+}
+
+export function localAssetRefs(text) {
+  const refs = [];
+  const pattern = /(?:href|src)\s*[:=]\s*["']([^"']+)["']|url\(\s*["']([^"')]+)["']\s*\)/g;
+  for (const match of text.matchAll(pattern)) refs.push(match[1] || match[2]);
+  return refs;
+}
+
+export function missingPackageAssets(dest) {
+  const missing = [];
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const full = path.join(dir, name);
+      if (fs.statSync(full).isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!/\.(mjs|ts|tsx|html|css|js)$/.test(name)) continue;
+      if (name.includes(".test.")) continue;
+      const text = fs.readFileSync(full, "utf8");
+      for (const ref of localAssetRefs(text)) {
+        if (!ref.startsWith("/") || ref === "/") continue;
+        const pathOnly = ref.split("?")[0].split("#")[0];
+        if (GENERATED_ROUTES.has(pathOnly)) continue;
+        const file = path.join(dest, "public", pathOnly.slice(1));
+        if (!fs.existsSync(file)) missing.push(`${path.relative(dest, full)} -> ${pathOnly}`);
+      }
+    }
+  };
+  walk(dest);
+  return missing;
+}
+
 export function copyPublishDir(source, dest) {
   fs.mkdirSync(dest, { recursive: true });
   const copied = [];
@@ -72,6 +141,7 @@ export function copyPublishDir(source, dest) {
     }
   };
   walk(source);
+  neutralizePlatformInstall(dest);
   return copied.sort();
 }
 

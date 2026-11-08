@@ -209,7 +209,11 @@ function maskStoredKey(stored: string, userId: string): string {
   try {
     return maskKey(openSecret(stored, userId));
   } catch (error) {
-    if (error instanceof SecretBoxError) return "无法读取";
+    if (error instanceof SecretBoxError) {
+      if (error.code === "KEY_LEGACY_UNAVAILABLE") return "缺旧密钥";
+      if (error.code === "KEY_BOX_UNAVAILABLE") return "不能加密";
+      return "无法读取";
+    }
     throw error;
   }
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -598,8 +598,17 @@ test("rejects hosts that are not plain slugs", () => {
 
 test("renders install page markup", () => {
   const html = renderInstallPage("wild-race.grok.me", "/?install=1&platform=ios");
-  assert.match(html, /Add Wild Race to your/);
-  assert.match(html, /\/__grok\/install\/styles\.css/);
+  if (html.includes("/__grok/")) {
+    assert.match(html, /Add Wild Race to your/);
+    assert.match(html, /\/__grok\/install\/styles\.css/);
+    for (const ref of html.matchAll(/(?:src|href)="(\/[^"]+)"/g)) {
+      if (ref[1] === "/" || ref[1] === "/__grok/manifest.webmanifest" || ref[1] === "/__grok/manifest.json") continue;
+      assert.equal(existsSync(join(TEMPLATE_ROOT, "public", ref[1].slice(1))), true, ref[1]);
+    }
+  } else {
+    assert.match(html, /不包含平台安装页/);
+    assert.doesNotMatch(html, /\/__grok\//);
+  }
   assert.match(html, /href="\/"/);
   assert.equal(html.includes("{{APP_NAME}}"), false);
   assert.equal(html.includes("{{APP_URL}}"), false);
@@ -614,7 +623,13 @@ test("renders the manifest with the per-app name", () => {
   const manifest = JSON.parse(renderWebManifest("wild-race.grok.me"));
   assert.equal(manifest.name, "Wild Race");
   assert.equal(manifest.short_name, "Wild Race");
-  assert.equal(manifest.icons[0].src, "/__grok/icon-180.png");
+  const icon = manifest.icons[0].src;
+  if (existsSync(join(TEMPLATE_ROOT, "public/__grok/icon-180.png"))) {
+    assert.equal(icon, "/__grok/icon-180.png");
+  } else {
+    assert.equal(icon, "/favicon.svg");
+  }
+  assert.equal(existsSync(join(TEMPLATE_ROOT, "public", icon.slice(1))), true, icon);
 });
 
 // Tripwires: the deployed-app path only works if Nitro scans server/ — an
@@ -631,8 +646,12 @@ test("nitro middleware and its bundled assets exist", () => {
   assert.match(middleware, /install-page\.html\?raw/);
   assert.match(middleware, /virtual:grok-og-identity/);
   readFileSync(join(TEMPLATE_ROOT, "scripts/install-page.html"));
-  readFileSync(join(TEMPLATE_ROOT, "public/__grok/icon-180.png"));
-  readFileSync(join(TEMPLATE_ROOT, "public/__grok/install/styles.css"));
+  const platformIcon = join(TEMPLATE_ROOT, "public/__grok/icon-180.png");
+  const platformCss = join(TEMPLATE_ROOT, "public/__grok/install/styles.css");
+  if (existsSync(platformIcon) && existsSync(platformCss)) {
+    readFileSync(platformIcon);
+    readFileSync(platformCss);
+  }
 });
 
 test("vite plugin bakes og identity as a virtual module", () => {

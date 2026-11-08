@@ -8,6 +8,7 @@ import { SecretBoxError, compareAndSetStoredKey, isSealed, openSecret, sealSecre
 const KEY = "test-key-encryption-secret";
 const priorKey = process.env.KEY_ENCRYPTION_SECRET;
 const priorAuth = process.env.BETTER_AUTH_SECRET;
+const priorLegacy = process.env.KEY_ENCRYPTION_LEGACY_SECRET;
 
 function sealV1(plain: string, secret: string): string {
   const iv = randomBytes(12);
@@ -21,6 +22,8 @@ afterEach(() => {
   else process.env.KEY_ENCRYPTION_SECRET = priorKey;
   if (priorAuth === undefined) delete process.env.BETTER_AUTH_SECRET;
   else process.env.BETTER_AUTH_SECRET = priorAuth;
+  if (priorLegacy === undefined) delete process.env.KEY_ENCRYPTION_LEGACY_SECRET;
+  else process.env.KEY_ENCRYPTION_LEGACY_SECRET = priorLegacy;
 });
 
 describe("secret box", () => {
@@ -61,27 +64,64 @@ describe("secret box", () => {
     });
   });
 
-  it("does not fall back to the login secret or a hardcoded dev key", () => {
+  it("writes only with the dedicated key and reads old v1 from configured read-only keys", () => {
     delete process.env.KEY_ENCRYPTION_SECRET;
     process.env.BETTER_AUTH_SECRET = "login-signing-secret";
+    delete process.env.KEY_ENCRYPTION_LEGACY_SECRET;
     assert.throws(() => sealSecret("sk-new", "user-a"), (error: unknown) => {
       assert.ok(error instanceof SecretBoxError);
       assert.equal(error.code, "KEY_BOX_UNAVAILABLE");
-      assert.equal(error.message.includes("langao-dev"), false);
       assert.equal(error.message.includes("login-signing-secret"), false);
       return true;
     });
-    const devSealed = sealV1("sk-dev", "langao-dev-only-key");
+
+    const fromAuth = sealV1("sk-from-auth", "login-signing-secret");
+    assert.equal(openSecret(fromAuth, "user-a"), "sk-from-auth");
+
     process.env.KEY_ENCRYPTION_SECRET = KEY;
-    assert.throws(() => openSecret(devSealed, "user-a"), (error: unknown) => {
+    const fresh = sealSecret("sk-new", "user-a");
+    assert.equal(fresh.startsWith("enc:v2:"), true);
+    delete process.env.KEY_ENCRYPTION_SECRET;
+    process.env.BETTER_AUTH_SECRET = KEY;
+    assert.throws(() => openSecret(fresh, "user-a"), (error: unknown) => {
       assert.ok(error instanceof SecretBoxError);
-      assert.equal(error.code, "KEY_UNREADABLE");
-      assert.equal(String(error).includes("sk-dev"), false);
+      assert.equal(error.code, "KEY_BOX_UNAVAILABLE");
       return true;
     });
+
+    process.env.KEY_ENCRYPTION_SECRET = KEY;
+    const fromOldDev = sealV1("sk-historical", "synthetic-historical-material");
+    delete process.env.BETTER_AUTH_SECRET;
+    delete process.env.KEY_ENCRYPTION_LEGACY_SECRET;
+    assert.throws(() => openSecret(fromOldDev, "user-a"), (error: unknown) => {
+      assert.ok(error instanceof SecretBoxError);
+      assert.equal(error.code, "KEY_LEGACY_UNAVAILABLE");
+      assert.equal(error.message.includes("sk-historical"), false);
+      return true;
+    });
+    process.env.KEY_ENCRYPTION_LEGACY_SECRET = "synthetic-historical-material";
+    assert.equal(openSecret(fromOldDev, "user-a"), "sk-historical");
+
     const source = fs.readFileSync(path.join(import.meta.dirname, "secret-box.server.ts"), "utf8");
-    assert.equal(source.includes("BETTER_AUTH_SECRET"), false);
-    assert.equal(source.includes("langao-dev-only-key"), false);
+    assert.match(source, /BETTER_AUTH_SECRET/);
+    assert.match(source, /KEY_ENCRYPTION_LEGACY_SECRET/);
+  });
+
+  it("does not call a broken v1 the same error as a missing legacy key", () => {
+    process.env.KEY_ENCRYPTION_SECRET = KEY;
+    process.env.BETTER_AUTH_SECRET = "login-signing-secret";
+    delete process.env.KEY_ENCRYPTION_LEGACY_SECRET;
+    assert.throws(() => openSecret("enc:v1:not-a-real-ciphertext", "user-a"), (error: unknown) => {
+      assert.ok(error instanceof SecretBoxError);
+      assert.equal(error.code, "KEY_UNREADABLE");
+      return true;
+    });
+    const wrong = sealV1("sk-other", "some-other-old-secret");
+    assert.throws(() => openSecret(wrong, "user-a"), (error: unknown) => {
+      assert.ok(error instanceof SecretBoxError);
+      assert.equal(error.code, "KEY_UNREADABLE");
+      return true;
+    });
   });
 
   it("compare-and-swaps plaintext and does not overwrite a newer value", async () => {
@@ -104,6 +144,17 @@ describe("secret box", () => {
     assert.equal(lost, false);
     assert.equal(openSecret(stored, "user-a"), "sk-plain");
     assert.deepEqual(writes, ["sk-plain"]);
+
+    process.env.BETTER_AUTH_SECRET = "login-signing-secret";
+    const legacy = sealV1("sk-from-auth", "login-signing-secret");
+    let legacyWrites = 0;
+    const skipped = await compareAndSetStoredKey(async () => {
+      legacyWrites += 1;
+      return true;
+    }, "user-a", legacy);
+    assert.equal(skipped, false);
+    assert.equal(legacyWrites, 0);
+    assert.equal(openSecret(legacy, "user-a"), "sk-from-auth");
   });
 
   it("does not write when the encryption key is missing", async () => {

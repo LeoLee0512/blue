@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { copyPublishDir, includeInPublish } from "./make-publish-dir.mjs";
+import { copyPublishDir, includeInPublish, missingPackageAssets } from "./make-publish-dir.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -45,4 +45,12 @@ test("clean directory keeps license, placeholder env, fonts, and whitelist", () 
   assert.match(license, /Permission is hereby granted/);
   const ofl = fs.readFileSync(path.join(dest, "public/fonts/licenses/OFL-NotoSerifSC.txt"), "utf8");
   assert.match(ofl, /SIL Open Font License/);
+  const install = fs.readFileSync(path.join(dest, "scripts/install-page.html"), "utf8");
+  assert.match(install, /不包含平台安装页/);
+  assert.doesNotMatch(install, /\/__grok\//);
+  assert.equal(fs.existsSync(path.join(dest, "public/__grok/icon-180.png")), false);
+  assert.deepEqual(missingPackageAssets(dest), []);
+  const appRoot = fs.readFileSync(path.join(dest, "src/routes/__root.tsx"), "utf8");
+  assert.doesNotMatch(appRoot, /\/__grok\//);
+  assert.match(appRoot, /href: "\/favicon.svg"/);
 });
