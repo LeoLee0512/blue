@@ -482,14 +482,15 @@ describe("classifyCallToolError", () => {
     );
   });
 
-  it("falls back to a generic error with the raw message", () => {
+  it("falls back to a generic error without the raw message", () => {
     const state = classifyCallToolError({
       ok: false,
       data: null,
-      errorMessage: "boom",
+      errorMessage: "boom sk-live upstream body at /internal/secret.ts",
     });
     assert.equal(state?.kind, "error");
-    assert.equal(state?.message, "boom");
+    assert.equal(state?.message, "Something went wrong. Try again.");
+    assert.equal(state?.message.includes("sk-live"), false);
     const empty = classifyCallToolError({ ok: false, data: null });
     assert.equal(empty?.kind, "error");
     assert.equal(empty?.message, "Something went wrong. Try again.");

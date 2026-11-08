@@ -32,9 +32,11 @@ import { Center, NAV, NavList, NovelList } from "@/components/panes";
 import { cn } from "@/lib/cn";
 
 function blame(error: unknown): string {
-  const message = error instanceof Error ? error.message : "没有完成";
-  if (/unauthorized/i.test(message)) return "登录已失效，请重新进入。";
-  return message;
+  const message = error instanceof Error ? error.message : "";
+  if (message === "Unauthorized" || message === "ACCOUNT_GONE" || /unauthorized/i.test(message)) {
+    return "登录已失效，请重新进入。";
+  }
+  return "没有完成";
 }
 
 function cacheNote(cache: { hit: number; miss: number } | undefined): string {

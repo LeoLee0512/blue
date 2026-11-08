@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { authClient, authEnabled } from "@/lib/auth/client";
+import { explainAuthError } from "@/lib/auth/login-error";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Button, fieldClass } from "@/components/ui";
 
@@ -15,18 +16,6 @@ function rememberSession(token: string | null | undefined) {
   } catch {
     /* storage unavailable */
   }
-}
-
-function explain(error: unknown): string {
-  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
-  if (/pop-up blocked/i.test(message))
-    return "登录窗口被拦住了。请允许弹出窗口，或直接用邮箱进入。";
-  if (/invalid origin/i.test(message)) return "这个页面暂时不能登录，请回到预览里再试。";
-  if (/invalid email or password|invalid credentials/i.test(message)) return "邮箱或密码不对。";
-  if (/email not verified/i.test(message))
-    return "邮箱还没验证。我们刚又发了一封验证邮件，请查收。";
-  if (/invalid token|expired/i.test(message)) return "链接无效或已过期，请重新申请。";
-  return message || "没有登录成功";
 }
 
 function Login() {
@@ -64,7 +53,7 @@ function Login() {
           email: email.trim(),
           redirectTo: "/login",
         });
-        if (sent.error) setError(explain(sent.error.message));
+        if (sent.error) setError(explainAuthError(sent.error.message));
         // 不论邮箱是否注册都给同样的提示，避免暴露哪些邮箱注册过
         else setNotice("如果这个邮箱注册过，重置链接已经发出，请查收。");
         setPending(false);
@@ -75,7 +64,7 @@ function Login() {
           newPassword: password,
           token: resetToken ?? "",
         });
-        if (done.error) setError(explain(done.error.message));
+        if (done.error) setError(explainAuthError(done.error.message));
         else {
           setNotice("密码已重置，请用新密码登录。");
           setMode("in");
@@ -93,7 +82,7 @@ function Login() {
             })
           : await authClient.signIn.email({ email: email.trim(), password });
       if (result.error) {
-        setError(explain(result.error.message));
+        setError(explainAuthError(result.error.message));
         setPending(false);
         return;
       }
@@ -106,7 +95,7 @@ function Login() {
       rememberSession(result.data?.token);
       window.location.assign("/");
     } catch (err) {
-      setError(explain(err));
+      setError(explainAuthError(err));
       setPending(false);
     }
   }

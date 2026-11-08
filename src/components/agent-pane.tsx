@@ -92,8 +92,8 @@ export function AgentPane() {
       const title = file.name.replace(/\.(txt|md|markdown)$/i, "") || "未命名";
       await desk.learnText({ kind, title, body: text, via: "file" });
       setTab("talk");
-    } catch (error) {
-      setFileError(error instanceof Error ? error.message : "没有读到文件");
+    } catch {
+      setFileError("没有读到文件");
     }
   }
 

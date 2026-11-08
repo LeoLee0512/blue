@@ -72,7 +72,7 @@ export function classifyCallToolError(
   if (rule) return { kind: rule.kind, message: rule.message, detail };
   return {
     kind: "error",
-    message: detail ?? "Something went wrong. Try again.",
+    message: "Something went wrong. Try again.",
     detail,
   };
 }

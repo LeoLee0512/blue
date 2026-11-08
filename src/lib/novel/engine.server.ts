@@ -1,4 +1,5 @@
 import { findWhitelisted, MODEL_WHITELIST, NOT_LISTED, PROVIDER_FAMILIES } from "./model-whitelist";
+import { CLIENT_CODE_TEXT, clientErrorFromThrown, upstreamFailureFromResponse } from "./client-error";
 import { WEB_SEARCH_ENABLED } from "./plan.server";
 import type { Sql } from "@/lib/db";
 import { CONTEXT_LIMIT, PLUGINS, SKILLS, TRANSCRIPT_LIMIT } from "./catalog";
@@ -402,14 +403,9 @@ async function postChat(input: {
       const timeout = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
       return { ok: false as const, error: "模型没有连上", status: 0, code: timeout ? "TIMEOUT" : "NETWORK" };
     }
-    if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) {
-      return { ok: false as const, error: "模型地址发生了跳转，已拦截", status: res.status, code: "REDIRECT_BLOCKED" };
-    }
-    if (!res.ok) {
-      // 2026-11-04 Sam（Mia §5.6）：密钥全部替换（原来 .replace 只替换第一处）。
-      const text = (await res.text()).slice(0, 240).split(input.apiKey).join("••••");
-      const code = res.status === 401 || res.status === 403 ? "KEY_INVALID" : res.status === 404 ? "NOT_FOUND" : res.status === 429 ? "RATE_LIMITED" : "UPSTREAM_ERROR";
-      return { ok: false as const, error: `模型返回 ${res.status}${text ? `：${text}` : ""}`, status: res.status, code };
+    if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400) || !res.ok) {
+      await res.body?.cancel().catch(() => undefined);
+      return upstreamFailureFromResponse(res);
     }
     const parsed = (await res.json()) as {
       usage?: {
@@ -537,7 +533,8 @@ async function runTool(sql: Sql, userId: string, novelId: string, call: ToolCall
       });
       return saved ? `已保存人物 ${saved.name}` : "没有保存人物";
     } catch (error) {
-      return error instanceof Error ? error.message : "人物没有保存";
+      const mapped = clientErrorFromThrown(error).error;
+      return mapped === "没有完成" ? "人物没有保存" : mapped;
     }
   }
   if (call.name === "update_ledger") {
@@ -1047,16 +1044,7 @@ export async function beginFromLine(sql: Sql, userId: string, sentence: string):
   return { novel: detail.novel, detail, today: usage[0] ?? null };
 }
 
-const TEST_TEXT: Record<string, string> = {
-  KEY_INVALID: "密钥无效或没有权限，请检查密钥是否属于这家服务商、是否已开通所选模型。",
-  NOT_FOUND: "服务商没有找到这个模型，可能是账号尚未开通。",
-  RATE_LIMITED: "请求太频繁或额度不足，请稍后再试，或到服务商控制台查看余额。",
-  REDIRECT_BLOCKED: "服务商地址发生了跳转，为了保护密钥已拦截。",
-  TIMEOUT: "15 秒内没有响应，请稍后再试。",
-  NETWORK: "暂时连不上服务商，请检查网络后再试。",
-  EMPTY_REPLY: "服务商有响应，但没有返回内容。",
-  UPSTREAM_ERROR: "服务商返回了错误，请稍后再试。",
-};
+const TEST_TEXT: Record<string, string> = CLIENT_CODE_TEXT;
 
 export async function testCustomConnection(sql: Sql, userId: string): Promise<{ ok: true; text: string } | { ok: false; error: string; code?: string }> {
   const settings = await readSecretSettings(sql, userId);
