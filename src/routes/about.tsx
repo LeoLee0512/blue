@@ -78,7 +78,7 @@ function About() {
         <section className="space-y-2 text-sm leading-relaxed">
           <h2 className="font-serif text-xl">版权与开源</h2>
           <p>Copyright (c) 2026 Leo Lee</p>
-          <p className="text-mist">开源材料筹备中。许可证：MIT。版权声明：Copyright (c) 2026 Leo Lee。</p>
+          <p className="text-mist">许可证：MIT。版权声明：Copyright (c) 2026 Leo Lee。许可证全文见仓库中的 LICENSE。</p>
         </section>
 
         <footer className="space-y-1 border-t border-line pt-4 text-xs leading-relaxed text-faint">
