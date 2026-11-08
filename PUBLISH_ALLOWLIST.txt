@@ -1,0 +1,30 @@
+# 干净发布目录允许进入的路径。脚本：scripts/make-publish-dir.mjs
+
+允许的根文件：
+LICENSE
+THIRD_PARTY_NOTICES.md
+PUBLISH_ALLOWLIST.txt
+.env.example
+.gitignore
+.nvmrc
+.prettierrc
+README.md
+package.json
+package-lock.json
+tsconfig.json
+vite.config.ts
+eslint.config.mjs
+
+允许的目录：
+src/
+migrations/
+server/
+scripts/
+public/（不含 public/__grok/）
+
+排除：
+node_modules、dist、.vercel、.output、.grok、publish、coverage、compliance
+.env 与 .env.*（保留 .env.example）
+src/lib/auth/preview.ts
+文件名含 backup、.bak、.pem、.key
+public/__grok 平台安装产物
