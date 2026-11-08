@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.vercel/
+.output/
+.grok/
+publish/
+coverage/
+compliance/
+*.pem
+*.key
+*.bak
+*.bak_*
+*backup*
+src/lib/auth/preview.ts
+.env
+.env.*
+!.env.example
