@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
+import { clientErrorFromThrown, sanitizeClientResult } from "./client-error";
 import type { Sql } from "@/lib/db";
 import type { AccountSnapshot, Chapter, Character, Leaf, LedgerEntry, Novel, NovelDetail, OutlineNode, Settings, SharedLeaf, SourceNote, UsageDay, VoiceDocs, Wallet } from "./types";
 import type { Seat } from "./plan.server";
@@ -29,19 +30,9 @@ async function run<T>(userId: string, fn: (sql: Sql) => Promise<T>): Promise<T |
     }
     const alive = await sql<{ id: string }>`select id from "user" where id = ${userId} limit 1`;
     if (!alive[0]) throw new Error("ACCOUNT_GONE");
-    return await fn(sql);
+    return sanitizeClientResult(await fn(sql));
   } catch (error) {
-    // 2026-11-08 Sam（M6 / Jim）：对外只回我们主动抛出的文案；编程异常一律「没有完成」，不把 TypeError 等原文给前端。
-    const code = error && typeof error === "object" && typeof (error as { code?: unknown }).code === "string" ? (error as { code: string }).code : undefined;
-    const msg = error instanceof Error ? error.message : "";
-    const bugRe = /TypeError|ReferenceError|SyntaxError|RangeError|Cannot read|is not a function|ECONN|ENOENT|Unexpected/;
-    const looksLikeBug = bugRe.test(msg) || msg.includes(" at ");
-    if (code && msg && !looksLikeBug) return { ok: false, error: msg, code };
-    const hasHan = /[一-鿿]/.test(msg);
-    if (msg && !looksLikeBug && (msg === "ACCOUNT_GONE" || msg === "参数无效" || msg === PAYMENT_DISABLED || hasHan)) {
-      return code ? { ok: false, error: msg, code } : { ok: false, error: msg };
-    }
-    return code ? { ok: false, error: "没有完成", code } : { ok: false, error: "没有完成" };
+    return clientErrorFromThrown(error);
   }
 }
 

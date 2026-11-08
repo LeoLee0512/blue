@@ -1,12 +1,9 @@
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { TriangleAlert } from "lucide-react";
+import { PAGE_ERROR_TEXT } from "@/lib/novel/client-error";
 
-const FALLBACK_MESSAGE = "An unexpected error occurred. Try reloading the page.";
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message;
-  if (typeof error === "string" && error) return error;
-  return FALLBACK_MESSAGE;
+function errorMessage(_error: unknown): string {
+  return PAGE_ERROR_TEXT;
 }
 
 export function AppErrorComponent({ error }: ErrorComponentProps) {
