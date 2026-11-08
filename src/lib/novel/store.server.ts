@@ -1,7 +1,7 @@
 import { entryById, findWhitelisted, isWhitelisted, NOT_LISTED, resolveConnection } from "./model-whitelist";
 import type { Sql } from "@/lib/db";
 import { readPlan, WEB_SEARCH_ENABLED } from "./plan.server";
-import { isSealed, openSecret, sealSecret } from "./secret-box.server";
+import { SecretBoxError, compareAndSetStoredKey, isSealed, openSecret, sealSecret } from "./secret-box.server";
 import { chapterFact, todayKey } from "./format";
 import {
   DEFAULT_PLUGINS,
@@ -185,7 +185,47 @@ function parseIds(raw: string, fallback: string[]): string[] {
   return ids.length ? ids : fallback;
 }
 
-function mapSettings(row: ProfileRow): Settings {
+function readStoredKey(stored: string, userId: string): string {
+  try {
+    return openSecret(stored, userId);
+  } catch (error) {
+    if (error instanceof SecretBoxError) throw new CodedError(error.code, error.message);
+    throw error;
+  }
+}
+
+function sealStoredKey(plain: string, userId: string): string {
+  try {
+    return sealSecret(plain, userId);
+  } catch (error) {
+    if (error instanceof SecretBoxError) throw new CodedError(error.code, error.message);
+    throw error;
+  }
+}
+
+function maskStoredKey(stored: string, userId: string): string {
+  if (!stored) return "";
+  if (!isSealed(stored)) return maskKey(stored);
+  try {
+    return maskKey(openSecret(stored, userId));
+  } catch (error) {
+    if (error instanceof SecretBoxError) return "无法读取";
+    throw error;
+  }
+}
+
+async function migratePlainApiKey(sql: Sql, userId: string, original: string): Promise<void> {
+  await compareAndSetStoredKey(async (sealed, unchanged) => {
+    const rows = await sql<{ api_key: string }>`
+      update profiles set api_key = ${sealed}
+      where user_id = ${userId} and api_key = ${unchanged}
+      returning api_key
+    `;
+    return Boolean(rows[0]);
+  }, userId, original);
+}
+
+function mapSettings(row: ProfileRow, userId: string): Settings {
   const provider = row.provider === "custom" ? "custom" : "hosted";
   return {
     provider,
@@ -194,7 +234,7 @@ function mapSettings(row: ProfileRow): Settings {
     hasKey: Boolean(row.api_key),
     usable: isWhitelisted(row.base_url, row.model),
     connection: resolveConnection(row.base_url, row.model, Boolean(row.api_key)),
-    keyMask: maskKey(openSecret(row.api_key)),
+    keyMask: maskStoredKey(row.api_key, userId),
     skills: knownSkillIds(parseIds(row.skills, DEFAULT_SKILLS)),
     plugins: knownPluginIds(parseIds(row.plugins, DEFAULT_PLUGINS)),
     wild: Number(row.wild) === 1,
@@ -255,9 +295,16 @@ export async function readAccount(sql: Sql, userId: string): Promise<AccountSnap
     thinking: "mid",
     context_used: 0,
   };
+  if (profile.api_key && !isSealed(profile.api_key)) {
+    try {
+      await migratePlainApiKey(sql, userId, profile.api_key);
+    } catch (error) {
+      if (!(error instanceof SecretBoxError)) throw error;
+    }
+  }
   return {
     novels: novels.map(mapNovel),
-    settings: mapSettings(profile),
+    settings: mapSettings(profile, userId),
     voice: await readVoice(sql, userId),
     sources: await listSources(sql, userId),
     usage: await readUsage(sql, userId),
@@ -621,12 +668,16 @@ export async function readSecretSettings(sql: Sql, userId: string): Promise<Sett
     thinking: "mid",
     context_used: 0,
   };
-  const apiKey = openSecret(row.api_key);
-  // 旧的明文 Key：顺手改写为密文（2026-10-30 Sam）
+  const apiKey = readStoredKey(row.api_key, userId);
+  // 旧明文按原值比较后再改写，避免并发保存被旧明文覆盖。坏密文不改写。
   if (row.api_key && !isSealed(row.api_key)) {
-    await sql`update profiles set api_key = ${sealSecret(apiKey)} where user_id = ${userId}`;
+    try {
+      await migratePlainApiKey(sql, userId, row.api_key);
+    } catch (error) {
+      if (!(error instanceof SecretBoxError)) throw error;
+    }
   }
-  return { ...mapSettings(row), apiKey };
+  return { ...mapSettings(row, userId), apiKey };
 }
 
 export async function saveSettings(
@@ -655,10 +706,10 @@ export async function saveSettings(
   // 2026-11-04 Sam（Mia §5.3 ④）：超长密钥报错，不再静默截断。
   if (input.keyAction === "set" && String(input.apiKey ?? "").length > 400) throw new CodedError("KEY_TOO_LONG", "密钥太长了（超过 400 个字符），请检查是否复制多了。");
   if (input.providerId !== undefined) return saveByProvider(sql, userId, prev, input);
-  let apiKey = openSecret(prev?.api_key ?? "");
-  if (input.keyAction === "clear") apiKey = "";
+  let apiKey = "";
   if (input.keyAction === "set") apiKey = clip(input.apiKey, 400);
-  const sealedKey = sealSecret(apiKey);
+  else if (input.keyAction !== "clear") apiKey = readStoredKey(prev?.api_key ?? "", userId);
+  const sealedKey = sealStoredKey(apiKey, userId);
   const skills = knownSkillIds(input.skills).join(",");
   const plugins = knownPluginIds(input.plugins).join(",");
   // 2026-11-01：不再回落到 DeepSeek，留空就存空，调用时再提示用户填写。
@@ -684,7 +735,7 @@ export async function saveSettings(
     select provider, base_url, model, api_key, skills, plugins, wild, web_on, thinking, context_used
     from profiles where user_id = ${userId}
   `;
-  return mapSettings(next[0]);
+  return mapSettings(next[0], userId);
 }
 
 export class CodedError extends Error {
@@ -717,7 +768,7 @@ async function saveByProvider(
   if (input.keyAction === "clear") throw new CodedError("KEY_REQUIRED", "请填写密钥。");
   if (input.keyAction !== "set" && !sameHost) throw new CodedError("KEY_REQUIRED_AFTER_SWITCH", "更换了服务商，需要重新填写密钥。");
   // 沿用密钥时原样保留已存的密文（不重新加密，避免无谓改写）。
-  const key = input.keyAction === "set" ? String(input.apiKey ?? "").trim() : openSecret(prev?.api_key ?? "");
+  const key = input.keyAction === "set" ? String(input.apiKey ?? "").trim() : readStoredKey(prev?.api_key ?? "", userId);
   if (!key) throw new CodedError("KEY_REQUIRED", "请填写密钥。");
   const skills = knownSkillIds(input.skills).join(",");
   const plugins = knownPluginIds(input.plugins).join(",");
@@ -727,7 +778,7 @@ async function saveByProvider(
       provider = 'custom',
       base_url = ${entry.base},
       model = ${model},
-      api_key = ${input.keyAction === "set" ? sealSecret(key) : (prev?.api_key ?? "")},
+      api_key = ${input.keyAction === "set" ? sealStoredKey(key, userId) : (prev?.api_key ?? "")},
       skills = ${skills},
       plugins = ${plugins}
     where user_id = ${userId}
@@ -736,7 +787,7 @@ async function saveByProvider(
     select provider, base_url, model, api_key, skills, plugins, wild, web_on, thinking, context_used
     from profiles where user_id = ${userId}
   `;
-  return mapSettings(next[0]);
+  return mapSettings(next[0], userId);
 }
 
 // 2026-11-04 Sam（Mia §5）：只改技能/插件开关，不再顺带把接口地址和模型写回去。
@@ -749,7 +800,7 @@ export async function saveToolset(sql: Sql, userId: string, input: { skills: str
     select provider, base_url, model, api_key, skills, plugins, wild, web_on, thinking, context_used
     from profiles where user_id = ${userId}
   `;
-  return mapSettings(next[0]);
+  return mapSettings(next[0], userId);
 }
 
 export async function recharge(sql: Sql, userId: string, packId: string): Promise<
