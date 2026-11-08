@@ -24,6 +24,7 @@ export const CLIENT_CODE_TEXT = {
   NOT_LISTED: "这个接口地址和模型不在可用名单里，请在「连接」里改选名单内的服务商和模型。",
   KEY_UNREADABLE: "已保存的密钥无法读取，原记录仍保留。",
   KEY_BOX_UNAVAILABLE: "服务器还不能加密保存密钥。",
+  KEY_LEGACY_UNAVAILABLE: "旧格式密钥还不能读取：未配置只读旧密钥。原记录仍保留。",
 } as const;
 
 export type ClientErrorCode = keyof typeof CLIENT_CODE_TEXT;
@@ -135,7 +136,9 @@ export function sanitizeClientResult<T>(value: T): T {
   if (record.ok !== false || typeof record.error !== "string") return value;
   const code = typeof record.code === "string" ? record.code : undefined;
   const mapped = sanitizeClientError(record.error, code);
-  return { ...record, error: mapped.error, ...(mapped.code ? { code: mapped.code } : { code: undefined }) } as T;
+  const next = { ...record, error: mapped.error, ...(mapped.code ? { code: mapped.code } : { code: undefined }) };
+  delete (next as { detail?: unknown }).detail;
+  return next as T;
 }
 
 export function upstreamCode(status: number): keyof typeof UPSTREAM_CALL_TEXT {

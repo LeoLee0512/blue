@@ -16,7 +16,8 @@ const okBody = '{"t":10,"i":0,"p":{"k":["result","error","context"],"v":[{"t":10
 let n = 0; const load = () => import("data:text/javascript," + encodeURIComponent(`${js}\n//${n++}`));
 const { isGoneResponse } = await load();
 test("Unauthorized 抛错 → 失效", () => assert.equal(isGoneResponse(200, unauth), true));
-test("真实 ACCOUNT_GONE → 失效", { skip: gone ? false : "样本不在排密导入里，未猜测补回" }, () => assert.equal(isGoneResponse(200, gone), true));
+test("真实 ACCOUNT_GONE 样本 → 失效", { skip: gone ? false : "未覆盖：真实抓取样本不在排密导入中，未补造该文件" }, () => assert.equal(isGoneResponse(200, gone), true));
+test("合成 ACCOUNT_GONE 响应 → 失效", () => assert.equal(isGoneResponse(200, unauth.replace('"Unauthorized"', '"ACCOUNT_GONE"')), true));
 test("HTTP 401 → 失效", () => assert.equal(isGoneResponse(401, ""), true));
 test("正文出现这两个词 → 不失效", () => assert.equal(isGoneResponse(200, okBody), false));
 test("非 JSON → 不失效", () => assert.equal(isGoneResponse(200, "<html>"), false));

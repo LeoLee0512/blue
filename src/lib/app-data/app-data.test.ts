@@ -63,7 +63,8 @@ describe("callTool failure memo", () => {
       const first = await callTool("google_drive_search", { q: "memo" }, options);
       const second = await callTool("google_drive_search", { q: "memo" }, options);
       assert.equal(first.ok, false);
-      assert.equal(first.errorMessage, "boom");
+      assert.equal(first.errorMessage, "connector_error");
+      assert.equal(JSON.stringify(first).includes("boom"), false);
       assert.deepEqual(second, first);
       assert.equal(calls(), 1);
     });
@@ -217,6 +218,21 @@ describe("callTool in the workspace preview vs deployed", () => {
 });
 
 describe("callTool", () => {
+  it("does not return upstream text in any field", async () => {
+    const bait = "sk-live-BAIT-9f3c";
+    await withStubbedGate(500, { ok: false, errorMessage: `upstream ${bait} at /internal/secret.ts` }, async () => {
+      const result = await callTool("google_drive_search", { q: "leak" }, {
+        connectorType: ConnectorType.GoogleDrive,
+        token: fakeJwt({ sub: "leak-user", iat: 1, exp: 2 }),
+      });
+      assert.equal(result.ok, false);
+      assert.equal(result.errorMessage, "connector_error");
+      assert.equal(JSON.stringify(result).includes(bait), false);
+      assert.equal(JSON.stringify(result).includes("secret.ts"), false);
+      assert.equal("detail" in result, false);
+    });
+  });
+
   it("resolves ok:false for non-serializable args instead of rejecting", async () => {
     process.env.GROK_CONNECTORS_URL = "https://connectors.invalid.example";
     try {
@@ -231,7 +247,8 @@ describe("callTool", () => {
         },
       );
       assert.equal(result.ok, false);
-      assert.match(result.errorMessage ?? "", /circular/i);
+      assert.equal(result.errorMessage, "connector_args_invalid");
+      assert.equal(JSON.stringify(result).includes("circular"), false);
     } finally {
       delete process.env.GROK_CONNECTORS_URL;
     }
@@ -417,7 +434,8 @@ describe("classifyCallToolError", () => {
     });
     assert.equal(state?.kind, "pending");
     assert.match(state?.message ?? "", /Connecting/);
-    assert.match(state?.detail ?? "", /connector_token_pending/);
+    assert.equal("detail" in (state ?? {}), false);
+    assert.equal(JSON.stringify(state).includes("preview has not received"), false);
   });
 
   it("classifies a deployed missing token as error, not a login CTA", () => {
@@ -427,7 +445,8 @@ describe("classifyCallToolError", () => {
       errorMessage: "missing_connector_token: open this app through the edge gate",
     });
     assert.equal(state?.kind, "error");
-    assert.match(state?.detail ?? "", /missing_connector_token/);
+    assert.equal("detail" in (state ?? {}), false);
+    assert.equal(JSON.stringify(state).includes("edge gate"), false);
   });
 
   it("classifies gate loginRequired without a missing-token message as login", () => {
@@ -438,7 +457,7 @@ describe("classifyCallToolError", () => {
       errorMessage: "login required",
     });
     assert.equal(state?.kind, "login");
-    assert.equal(state?.detail, "login required");
+    assert.equal("detail" in (state ?? {}), false);
   });
 
   it("classifies not_connected and failed_precondition", () => {
@@ -468,7 +487,7 @@ describe("classifyCallToolError", () => {
     });
     assert.equal(state?.kind, "scope_denied");
     assert.match(state?.message ?? "", /tool outside its grant/);
-    assert.match(state?.detail ?? "", /notion-list-recent-pages/);
+    assert.equal(JSON.stringify(state).includes("notion-list-recent-pages"), false);
   });
 
   it("classifies access_denied", () => {
@@ -483,17 +502,19 @@ describe("classifyCallToolError", () => {
   });
 
   it("falls back to a generic error without the raw message", () => {
+    const bait = "sk-live-BAIT-9f3c";
     const state = classifyCallToolError({
       ok: false,
       data: null,
-      errorMessage: "boom sk-live upstream body at /internal/secret.ts",
+      errorMessage: `boom ${bait} upstream body at /internal/secret.ts`,
     });
     assert.equal(state?.kind, "error");
     assert.equal(state?.message, "Something went wrong. Try again.");
-    assert.equal(state?.message.includes("sk-live"), false);
+    assert.equal(JSON.stringify(state).includes(bait), false);
+    assert.equal(JSON.stringify(state).includes("secret.ts"), false);
     const empty = classifyCallToolError({ ok: false, data: null });
     assert.equal(empty?.kind, "error");
     assert.equal(empty?.message, "Something went wrong. Try again.");
-    assert.equal(empty?.detail, undefined);
+    assert.equal("detail" in (empty ?? {}), false);
   });
 });

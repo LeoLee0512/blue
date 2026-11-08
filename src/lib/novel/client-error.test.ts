@@ -64,12 +64,14 @@ describe("client error mapping", () => {
   });
 
   it("sanitizes a returned error object and leaves success untouched", () => {
-    const bad = sanitizeClientResult({ ok: false as const, error: LEAK, code: "ECONNRESET", extra: 1 });
+    const bad = sanitizeClientResult({ ok: false as const, error: LEAK, code: "ECONNRESET", detail: LEAK, extra: 1 });
     assert.equal(bad.error, GENERIC_CLIENT_ERROR);
     assert.equal(bad.code, undefined);
+    assert.equal("detail" in bad, false);
     assert.equal(JSON.stringify(bad).includes("sk-live"), false);
-    const ok = sanitizeClientResult({ ok: true as const, text: LEAK });
+    const ok = sanitizeClientResult({ ok: true as const, text: LEAK, detail: { title: "keep" } });
     assert.equal(ok.text, LEAK);
+    assert.equal(ok.detail.title, "keep");
   });
 
   it("postChat does not read the upstream body", () => {

@@ -12,8 +12,24 @@ export type CallToolErrorKind =
 export type CallToolErrorState = {
   kind: CallToolErrorKind;
   message: string;
-  detail?: string;
 };
+
+/** Client-visible connector error codes. Upstream sentences are not returned. */
+export function publicConnectorError(raw: string): string {
+  const text = raw.toLowerCase();
+  if (text.includes("connector_token_pending")) return "connector_token_pending";
+  if (text.includes("missing_connector_token")) return "missing_connector_token";
+  if (text.includes("scope_denied")) return "scope_denied";
+  if (text.includes("access_denied")) return "access_denied";
+  if (text.includes("not_connected") || text.includes("failed_precondition")) return "not_connected";
+  if (text.includes("login required")) return "login required";
+  if (text.includes("connectorcatalogid is required")) return "connector_catalog_required";
+  if (text.includes("connectortype is required")) return "connector_type_required";
+  if (text.includes("cross-site")) return "cross_site_blocked";
+  if (text.includes("inbound request")) return "connector_method_blocked";
+  if (text.includes("circular")) return "connector_args_invalid";
+  return "connector_error";
+}
 
 type MessageRule = {
   needles: readonly string[];
@@ -49,30 +65,26 @@ export function classifyCallToolError(
   result: CallToolResult,
 ): CallToolErrorState | null {
   if (result.ok) return null;
-  const detail = result.errorMessage || undefined;
   const raw = (result.errorMessage ?? "").toLowerCase();
   if (isConnectorPending(result)) {
-    return { kind: "pending", message: "Connecting to your data…", detail };
+    return { kind: "pending", message: "Connecting to your data…" };
   }
   if (raw.includes("missing_connector_token")) {
     return {
       kind: "error",
       message: "Open this app from Grok to load your data.",
-      detail,
     };
   }
   if (isLoginRequired(result)) {
     return {
       kind: "login",
       message: "Continue with Grok to load your data.",
-      detail,
     };
   }
   const rule = matchMessageRule(raw);
-  if (rule) return { kind: rule.kind, message: rule.message, detail };
+  if (rule) return { kind: rule.kind, message: rule.message };
   return {
     kind: "error",
     message: "Something went wrong. Try again.",
-    detail,
   };
 }
