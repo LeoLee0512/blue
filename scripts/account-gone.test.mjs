@@ -10,13 +10,12 @@ const stubSrc = `export async function signOut(){ globalThis.__signOuts=(globalT
 const stubUrl = "data:text/javascript," + encodeURIComponent(stubSrc);
 const js = ts.transpileModule(fs.readFileSync(path.join(root, "src/lib/auth/account-gone.client.ts"), "utf8"), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText.replace(/from "\.\/client"/, `from "${stubUrl}"`);
 const unauth = '{"t":10,"i":0,"p":{"k":["result","error","context"],"v":[{"t":2,"s":1},{"t":25,"i":1,"s":{"message":{"t":1,"s":"Unauthorized"}},"c":"$TSR/Error"},{"t":10,"i":2,"p":{"k":[],"v":[]},"o":0}]},"o":0}';
-const goneFixture = path.join(here, "fixtures/real_account_gone_sample.txt");
-const gone = fs.existsSync(goneFixture) ? fs.readFileSync(goneFixture, "utf8").trim() : "";
+const gone = fs.readFileSync(path.join(here, "fixtures/real_account_gone_sample.txt"), "utf8").trim();
 const okBody = '{"t":10,"i":0,"p":{"k":["result","error","context"],"v":[{"t":10,"i":1,"p":{"k":["ok","text"],"v":[{"t":2,"s":2},{"t":1,"s":"他写下 ACCOUNT_GONE 和 Unauthorized"}]},"o":0},{"t":2,"s":1},{"t":10,"i":2,"p":{"k":[],"v":[]},"o":0}]},"o":0}';
 let n = 0; const load = () => import("data:text/javascript," + encodeURIComponent(`${js}\n//${n++}`));
 const { isGoneResponse } = await load();
 test("Unauthorized 抛错 → 失效", () => assert.equal(isGoneResponse(200, unauth), true));
-test("真实 ACCOUNT_GONE 样本 → 失效", { skip: gone ? false : "未覆盖：真实抓取样本不在排密导入中，未补造该文件" }, () => assert.equal(isGoneResponse(200, gone), true));
+test("真实 ACCOUNT_GONE 样本 → 失效", () => assert.equal(isGoneResponse(200, gone), true));
 test("合成 ACCOUNT_GONE 响应 → 失效", () => assert.equal(isGoneResponse(200, unauth.replace('"Unauthorized"', '"ACCOUNT_GONE"')), true));
 test("HTTP 401 → 失效", () => assert.equal(isGoneResponse(401, ""), true));
 test("正文出现这两个词 → 不失效", () => assert.equal(isGoneResponse(200, okBody), false));

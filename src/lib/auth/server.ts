@@ -26,6 +26,8 @@ import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
+import { APIError } from "better-auth/api";
+import { SIGNUP_CONFIRMATION_ERROR, signupBodyNeedsRejection } from "./signup-confirmation";
 import { pgliteDialect } from "./pglite-dialect";
 
 // Kick (and share) PGLite bootstrap as soon as the auth server module loads.
@@ -101,6 +103,21 @@ export const auth = betterAuth({
   baseURL,
   secret: sessionSecret(),
   database,
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user, context) => {
+          if (signupBodyNeedsRejection(context?.path, context?.body)) {
+            throw APIError.from("BAD_REQUEST", {
+              message: SIGNUP_CONFIRMATION_ERROR,
+              code: "SIGNUP_CONFIRMATION_REQUIRED",
+            });
+          }
+          return { data: user };
+        },
+      },
+    },
+  },
 
   // CSRF / origin check for credentialed auth POSTs (email sign-up/sign-in, …).
   // See `trustedOrigins` construction above — must cover live preview hosts AND

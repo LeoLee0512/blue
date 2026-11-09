@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { authClient, authEnabled } from "@/lib/auth/client";
 import { explainAuthError } from "@/lib/auth/login-error";
+import { SIGNUP_CONFIRMATION_ERROR } from "@/lib/auth/signup-confirmation";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { Button, fieldClass } from "@/components/ui";
 
@@ -30,6 +31,7 @@ function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [adultConfirmed, setAdultConfirmed] = useState(false);
 
   if (isPending) {
     return (
@@ -73,12 +75,18 @@ function Login() {
         setPending(false);
         return;
       }
+      if (mode === "up" && !adultConfirmed) {
+        setError(SIGNUP_CONFIRMATION_ERROR);
+        setPending(false);
+        return;
+      }
       const result =
         mode === "up"
           ? await authClient.signUp.email({
               email: email.trim(),
               password,
               name: name.trim() || email.trim(),
+              ...{ adultConfirmed: true },
             })
           : await authClient.signIn.email({ email: email.trim(), password });
       if (result.error) {
@@ -170,9 +178,21 @@ function Login() {
                   autoComplete={mode === "in" ? "current-password" : "new-password"}
                 />
               ) : null}
+              {mode === "up" ? (
+                <label className="flex items-start gap-2 text-sm leading-relaxed text-mist">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={adultConfirmed}
+                    onChange={(event) => setAdultConfirmed(event.target.checked)}
+                    required
+                  />
+                  <span>我已年满 18 周岁，并同意《用户协议》《隐私政策》</span>
+                </label>
+              ) : null}
               {error ? <p className="text-sm text-ink">{error}</p> : null}
               {notice ? <p className="text-sm text-mist">{notice}</p> : null}
-              <Button type="submit" className="w-full" disabled={pending || !authEnabled}>
+              <Button type="submit" className="w-full" disabled={pending || !authEnabled || (mode === "up" && !adultConfirmed)}>
                 {pending
                   ? "请稍等"
                   : mode === "up"
