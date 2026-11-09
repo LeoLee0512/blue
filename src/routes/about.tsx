@@ -21,7 +21,7 @@ function About() {
           <p>主导人：Leo Lee</p>
           <p>本软件由主导人使用 Grok Bot 合作制作。</p>
           {/* AB-04【文案待律师定】：先上屏 */}
-          <p className="text-mist">蓝稿由个人运营者Leo Lee对外提供服务。详细规则见《用户协议》与《隐私政策》。</p>
+          <p className="text-mist">蓝稿由个人运营者 Leo Lee 对外提供服务。详细规则见《用户协议》《隐私政策》。</p>
         </section>
 
         <section className="space-y-2 text-sm leading-relaxed">

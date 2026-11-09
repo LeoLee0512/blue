@@ -42,6 +42,7 @@ test("clean directory keeps license, placeholder env, fonts, and whitelist", () 
   assert.match(css, /\/fonts\/source-sans-3-latin-400-normal\.woff2/);
   const license = fs.readFileSync(path.join(dest, "LICENSE"), "utf8");
   assert.match(license, /Copyright \(c\) 2026 Leo Lee/);
+  assert.equal(license.includes(String.fromCharCode(0x674e, 0x4f73, 0x660a)), false);
   assert.match(license, /Permission is hereby granted/);
   const ofl = fs.readFileSync(path.join(dest, "public/fonts/licenses/OFL-NotoSerifSC.txt"), "utf8");
   assert.match(ofl, /SIL Open Font License/);

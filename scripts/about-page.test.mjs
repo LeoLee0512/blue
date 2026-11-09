@@ -13,6 +13,9 @@ test("关于页只读 PROVIDER_FAMILIES，必写两句在，不含密钥和 comp
   assert.match(about, /主导人：Leo Lee/);
   assert.match(about, /本软件由主导人使用 Grok Bot 合作制作/);
   assert.match(about, /Copyright \(c\) 2026 Leo Lee/);
+  assert.equal(about.includes(String.fromCharCode(0x674e, 0x4f73, 0x660a)), false);
+  assert.equal(about.includes(String.fromCharCode(0x5317, 0x4eac, 0x5e02, 0x5927, 0x5174, 0x533a)), false);
+  assert.equal(about.includes(["620", "026", "600"].join("")), false);
   assert.doesNotMatch(about, /存放在中华人民共和国境内的服务器上/);
   assert.match(about, /不把它写成已经完成的事实/);
   assert.doesNotMatch(about, /备案单位|entity/);
