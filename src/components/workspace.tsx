@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { UserButton } from "@/lib/auth/gates";
 import { installAccountGoneGuard } from "@/lib/auth/account-gone.client";
 import {
   applyTemplate,
   bootstrap,
-  buyPack,
   createNovel,
   loadNovel,
   pingModel,
@@ -137,6 +136,9 @@ export function Workspace() {
     setSelectedNodeId((current) => (nodes.some((node) => node.id === current) ? current : (nodes[0]?.id ?? "")));
   }
 
+  const refreshDetailRef = useRef(refreshDetail);
+  refreshDetailRef.current = refreshDetail;
+
   async function refreshAll() {
     const res = await bootstrap();
     if (!res.ok) {
@@ -148,6 +150,7 @@ export function Workspace() {
   }
 
   const desk = useMemo<Desk>(() => {
+    const refreshDetail = () => refreshDetailRef.current();
     const note = (text: string) => {
       setError("");
       setNotice(text);
@@ -485,11 +488,6 @@ export function Workspace() {
         } finally {
           setBusy(false);
         }
-      },
-      // 2026-11-01 全免费：充值入口下线，原实现见 workspace.tsx.bak_20261101_sam_b1。
-      buy: async (packId: string) => {
-        void packId;
-        note("蓝稿已全部免费，不再提供充值。");
       },
       saveVoice: async (input, opts) => {
         const quiet = opts?.quiet;

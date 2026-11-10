@@ -60,7 +60,6 @@ export type Desk = {
   // testLink: () => Promise<void>;
   saveLink: (input: { providerId: string; modelId: string; keyAction: string; apiKey?: string }) => Promise<LinkResult>;
   testLink: () => Promise<LinkResult>;
-  buy: (packId: string) => Promise<void>;
   saveVoice: (input: VoiceDocs, opts?: { quiet?: boolean }) => Promise<boolean>;
   learnText: (input: { kind: "work" | "favorite"; title: string; body: string; via?: "paste" | "file" }) => Promise<void>;
   review: () => Promise<void>;
@@ -74,6 +73,7 @@ export function DeskProvider({ value, children }: { value: Desk; children: React
   return <DeskContext.Provider value={value}>{children}</DeskContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook lives with the provider it reads
 export function useDesk(): Desk {
   const desk = useContext(DeskContext);
   if (!desk) throw new Error("书桌还没有准备好");

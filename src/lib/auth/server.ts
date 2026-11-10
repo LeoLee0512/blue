@@ -28,7 +28,10 @@ import { ensureDbReady, getPglite } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { APIError } from "better-auth/api";
 import { SIGNUP_CONFIRMATION_ERROR, signupBodyNeedsRejection } from "./signup-confirmation";
+import { assertProductionKeyEncryptionSecret } from "../novel/secret-box.server";
 import { pgliteDialect } from "./pglite-dialect";
+
+assertProductionKeyEncryptionSecret();
 
 // Kick (and share) PGLite bootstrap as soon as the auth server module loads.
 void ensureDbReady();

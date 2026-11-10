@@ -7,9 +7,11 @@ const js = ts.transpileModule(fs.readFileSync(path.join(root, "src/lib/novel/mod
 const W = await import("data:text/javascript," + encodeURIComponent(js));
 const ok = (b, m) => assert.equal(W.isWhitelisted(b, m), true, `${b} ${m}`);
 const no = (b, m) => assert.equal(W.isWhitelisted(b, m), false, `${b} ${m}`);
-test("共 8 家 41 个模型", () => {
-  assert.equal(W.MODEL_WHITELIST.reduce((n, e) => n + e.models.length, 0), 41);
-  assert.equal(new Set(W.MODEL_WHITELIST.map((e) => e.label.replace(/ X.*$/, ""))).size, 8);
+test("模型个数由名单本身算出", () => {
+  const counted = W.MODEL_WHITELIST.reduce((n, e) => n + e.models.length, 0);
+  assert.equal(W.listedModelCount(), counted);
+  assert.equal(W.PROVIDER_FAMILIES.length, 8);
+  assert.ok(counted > 0);
 });
 test("名单内地址的几种写法都放行", () => {
   ok("https://api.deepseek.com", "deepseek-flash");

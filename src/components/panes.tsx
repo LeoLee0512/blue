@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Cable, CalendarDays, Feather, Layers, Library, ListTree, NotebookPen, PenLine, Puzzle, Quote, ScrollText, type LucideIcon } from "lucide-react";
+import { BookOpen, Cable, CalendarDays, Feather, Layers, ListTree, NotebookPen, PenLine, Puzzle, Quote, ScrollText, type LucideIcon } from "lucide-react";
 import { GENRES, PLUGINS, SKILLS, VOICE_SKILLS } from "@/lib/novel/catalog";
 import { countChars, childrenOf, downloadMarkdown, exportMarkdown, todayKey, openThreads, storyNet, threadPreview, chapterFact, driftNote, reviewSides } from "@/lib/novel/format";
 import { DELETE_ACCOUNT_CONFIRM, deleteAccount, exportMyShares } from "@/lib/novel/api"; // publishText 2026-11-02 下线
@@ -12,10 +12,10 @@ import { Button, Empty, Field, Switch, areaClass, fieldClass } from "@/component
 import { LibraryHint } from "@/components/guide";
 import { StudioBar } from "@/components/studio-bar";
 import { NotesPane, PoetryPane } from "@/components/shelf"; // SharePane 2026-11-02 下线
-// import { PlanPane } from "@/components/plan-pane"; // 2026-11-01 全免费下线
 import { cn } from "@/lib/cn";
 import { modelOptions, PROVIDER_FAMILIES } from "@/lib/novel/model-whitelist";
 
+// eslint-disable-next-line react-refresh/only-export-components -- nav table is shared with the panes in this file
 export const NAV: { id: PaneId; label: string; icon: LucideIcon; mobile?: boolean }[] = [
   { id: "library", label: "书库", icon: BookOpen },
   { id: "studio", label: "工作台", icon: Feather },
@@ -502,16 +502,21 @@ function OutlinePane() {
     setArmDelete(false);
   }
 
+  const selectedId = selected?.id ?? "";
+  const selectedTitle = selected?.title ?? "";
+  const selectedSummary = selected?.summary ?? "";
+  const selectedParentId = selected?.parentId ?? null;
+  const selectedKind = selected?.kind ?? "chapter";
   useEffect(() => {
-    if (!selected || edited.current) return;
-    setTitle(selected.title);
-    setSummary(selected.summary);
-  }, [selected?.id, selected?.title, selected?.summary]);
+    if (!selectedId || edited.current) return;
+    setTitle(selectedTitle);
+    setSummary(selectedSummary);
+  }, [selectedId, selectedTitle, selectedSummary]);
 
   useEffect(() => {
-    if (!selected || !edited.current) return;
+    if (!selectedId || !edited.current) return;
     const mine = ++gen.current;
-    const payload = { id: selected.id, parentId: selected.parentId, kind: selected.kind, title, summary };
+    const payload = { id: selectedId, parentId: selectedParentId, kind: selectedKind, title, summary };
     const handle = window.setTimeout(() => {
       void saveRef.current(payload, { quiet: true }).then((ok) => {
         if (gen.current !== mine) return;
@@ -520,7 +525,7 @@ function OutlinePane() {
       });
     }, 700);
     return () => window.clearTimeout(handle);
-  }, [title, summary, selected?.id, selected?.parentId, selected?.kind]);
+  }, [title, summary, selectedId, selectedParentId, selectedKind]);
 
   return (
     <NeedBook>
@@ -683,16 +688,19 @@ function ManuscriptPane() {
     setArmDelete(false);
   }
 
+  const selectedId = selected?.id ?? "";
+  const selectedTitle = selected?.title ?? "";
+  const selectedBody = selected?.body ?? "";
   useEffect(() => {
-    if (!selected || edited.current) return;
-    setTitle(selected.title);
-    setBody(selected.body);
-  }, [selected?.id, selected?.title, selected?.body]);
+    if (!selectedId || edited.current) return;
+    setTitle(selectedTitle);
+    setBody(selectedBody);
+  }, [selectedId, selectedTitle, selectedBody]);
 
   useEffect(() => {
-    if (!selected || !edited.current) return;
+    if (!selectedId || !edited.current) return;
     const mine = ++gen.current;
-    const payload = { id: selected.id, title, body };
+    const payload = { id: selectedId, title, body };
     const handle = window.setTimeout(() => {
       void saveRef.current(payload, { quiet: true }).then((ok) => {
         if (gen.current !== mine) return;
@@ -701,7 +709,7 @@ function ManuscriptPane() {
       });
     }, 700);
     return () => window.clearTimeout(handle);
-  }, [title, body, selected?.id]);
+  }, [title, body, selectedId]);
 
   return (
     <NeedBook>

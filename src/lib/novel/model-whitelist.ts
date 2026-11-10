@@ -98,6 +98,11 @@ export function isWhitelisted(baseUrl: string, model: string): boolean {
   return findWhitelisted(baseUrl, model) !== null;
 }
 
+/** 名单里可选模型的个数，供关于页展示，避免把数字写死。 */
+export function listedModelCount(): number {
+  return MODEL_WHITELIST.reduce((sum, entry) => sum + entry.models.length, 0);
+}
+
 export const NOT_LISTED = "这个接口地址和模型不在可用名单里，请在「连接」里改选名单内的服务商和模型。";
 
 export function familyOf(entry: WhitelistEntry): ProviderFamily {

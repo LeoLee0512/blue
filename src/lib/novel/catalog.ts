@@ -1,20 +1,7 @@
 import type { NodeKind } from "./types";
 
-export const INK = {
-  starter: 60,
-  talkCost: 2,
-  turnCost: 10,
-  hostedCap: 20,
-} as const;
-
 export const CONTEXT_LIMIT = 1_000_000;
 export const TRANSCRIPT_LIMIT = 480_000;
-
-export const PACKS = [
-  { id: "ink-60", points: 60, name: "短章", note: "大约六次托管生成" },
-  { id: "ink-150", points: 150, name: "连载", note: "把大纲写成几章" },
-  { id: "ink-400", points: 400, name: "长篇", note: "托管仍受账户次数上限约束" },
-] as const;
 
 export const GENRES = ["文学", "悬疑", "奇幻", "科幻", "言情", "现实", "历史"] as const;
 
@@ -145,10 +132,6 @@ export function knownSkillIds(ids: string[]): string[] {
 export function knownPluginIds(ids: string[]): string[] {
   const allow = new Set(PLUGINS.map((p) => p.id));
   return [...new Set(ids.filter((id) => allow.has(id)))].slice(0, PLUGINS.length);
-}
-
-export function packById(id: string) {
-  return PACKS.find((p) => p.id === id) ?? null;
 }
 
 export const VOICE_FILES = {

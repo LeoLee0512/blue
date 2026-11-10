@@ -11,7 +11,7 @@ export const Route = createRootRoute({
       { title: "蓝稿" },
       {
         name: "description",
-        content: "蓝稿是写小说、建大纲的写作代理。接入你自己的模型，启用技能与插件，免费使用。",
+        content: "蓝稿是免费的中文写作工具。你填写自己的模型密钥，用来写小说和整理大纲。",
       },
       { name: "theme-color", content: "#f4f7fb" },
     ],

@@ -22,9 +22,9 @@ export const CLIENT_CODE_TEXT = {
   UPSTREAM_ERROR: "服务商返回了错误，请稍后再试。",
   NOT_CONFIGURED: "请先选择服务商和模型、填写密钥并保存。",
   NOT_LISTED: "这个接口地址和模型不在可用名单里，请在「连接」里改选名单内的服务商和模型。",
-  KEY_UNREADABLE: "已保存的密钥无法读取，原记录仍保留。",
+  KEY_UNREADABLE: "已保存的密钥读不出来，原来的记录还在。",
   KEY_BOX_UNAVAILABLE: "服务器还不能加密保存密钥。",
-  KEY_LEGACY_UNAVAILABLE: "旧格式密钥还不能读取：未配置只读旧密钥。原记录仍保留。",
+  KEY_LEGACY_UNAVAILABLE: "这是较早保存的密钥。还没有配置用来读取它的旧密钥，原来的记录还在。",
 } as const;
 
 export type ClientErrorCode = keyof typeof CLIENT_CODE_TEXT;
