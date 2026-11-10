@@ -20,9 +20,9 @@ const V1 = "enc:v1:";
 const V2 = "enc:v2:";
 
 const TEXT = {
-  KEY_UNREADABLE: "已保存的密钥无法读取，原记录仍保留。",
+  KEY_UNREADABLE: "已保存的密钥读不出来，原来的记录还在。",
   KEY_BOX_UNAVAILABLE: "服务器还不能加密保存密钥。",
-  KEY_LEGACY_UNAVAILABLE: "旧格式密钥还不能读取：未配置只读旧密钥。原记录仍保留。",
+  KEY_LEGACY_UNAVAILABLE: "这是较早保存的密钥。还没有配置用来读取它的旧密钥，原来的记录还在。",
 } as const;
 
 export class SecretBoxError extends Error {
@@ -42,6 +42,26 @@ function trimEnv(name: string): string | undefined {
 function digest(secret: string): Buffer {
   return createHash("sha256").update(secret).digest();
 }
+
+const MIN_PRODUCTION_SECRET_LENGTH = 32;
+const PLACEHOLDER_SECRETS = new Set([
+  "replace-with-a-long-random-string",
+  "replace-with-a-different-long-random-string",
+]);
+
+/** Production must have a long, non-placeholder KEY_ENCRYPTION_SECRET before serving. */
+export function assertProductionKeyEncryptionSecret(): void {
+  if (process.env.NODE_ENV !== "production") return;
+  const secret = trimEnv("KEY_ENCRYPTION_SECRET") ?? "";
+  if (!secret) {
+    throw new Error("[key] 生产环境缺少 KEY_ENCRYPTION_SECRET，拒绝启动。");
+  }
+  if (secret.length < MIN_PRODUCTION_SECRET_LENGTH || PLACEHOLDER_SECRETS.has(secret)) {
+    throw new Error("[key] 生产环境的 KEY_ENCRYPTION_SECRET 太弱或仍是占位符，拒绝启动。请换成至少 32 个字符的随机字符串。");
+  }
+}
+
+assertProductionKeyEncryptionSecret();
 
 function dedicatedKey(): Buffer {
   const secret = trimEnv("KEY_ENCRYPTION_SECRET");

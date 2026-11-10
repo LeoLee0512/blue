@@ -117,19 +117,6 @@ function LeafPane({ kind }: { kind: "poem" | "note" }) {
     }
   }
 
-  async function publish() {
-    if (!id || !body.trim()) return setError("没有可以放上的文字");
-    setBusy(true);
-    setError("");
-    try {
-      const res = await publishText({ data: { kind, title, body, sourceId: id } });
-      if (!res.ok) return setError(res.error);
-      setMark("已放到架上");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function destroy() {
     if (!id) return;
     setBusy(true);

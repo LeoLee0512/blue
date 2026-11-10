@@ -3,7 +3,7 @@ import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { SecretBoxError, compareAndSetStoredKey, isSealed, openSecret, sealSecret } from "./secret-box.server.ts";
+import { SecretBoxError, assertProductionKeyEncryptionSecret, compareAndSetStoredKey, isSealed, openSecret, sealSecret } from "./secret-box.server.ts";
 
 const KEY = "test-key-encryption-secret";
 const priorKey = process.env.KEY_ENCRYPTION_SECRET;
@@ -37,7 +37,7 @@ describe("secret box", () => {
     assert.throws(() => openSecret(stored, "user-b"), (error: unknown) => {
       assert.ok(error instanceof SecretBoxError);
       assert.equal(error.code, "KEY_UNREADABLE");
-      assert.equal(error.message, "已保存的密钥无法读取，原记录仍保留。");
+      assert.equal(error.message, "已保存的密钥读不出来，原来的记录还在。");
       assert.equal(error.message.includes("authenticate"), false);
       assert.equal(error.message.includes("sk-user-key"), false);
       return true;
@@ -155,6 +155,26 @@ describe("secret box", () => {
     assert.equal(skipped, false);
     assert.equal(legacyWrites, 0);
     assert.equal(openSecret(legacy, "user-a"), "sk-from-auth");
+  });
+
+  it("refuses to start in production without a strong encryption secret", () => {
+    const previous = process.env.NODE_ENV;
+    const previousKey = process.env.KEY_ENCRYPTION_SECRET;
+    process.env.NODE_ENV = "production";
+    try {
+      delete process.env.KEY_ENCRYPTION_SECRET;
+      assert.throws(() => assertProductionKeyEncryptionSecret(), /缺少 KEY_ENCRYPTION_SECRET/);
+      process.env.KEY_ENCRYPTION_SECRET = "replace-with-a-different-long-random-string";
+      assert.throws(() => assertProductionKeyEncryptionSecret(), /太弱或仍是占位符/);
+      process.env.KEY_ENCRYPTION_SECRET = "short";
+      assert.throws(() => assertProductionKeyEncryptionSecret(), /太弱或仍是占位符/);
+      process.env.KEY_ENCRYPTION_SECRET = "x".repeat(32);
+      assert.doesNotThrow(() => assertProductionKeyEncryptionSecret());
+    } finally {
+      process.env.NODE_ENV = previous;
+      if (previousKey === undefined) delete process.env.KEY_ENCRYPTION_SECRET;
+      else process.env.KEY_ENCRYPTION_SECRET = previousKey;
+    }
   });
 
   it("does not write when the encryption key is missing", async () => {

@@ -73,18 +73,6 @@ export type UsageDay = {
   aiChars: number;
 };
 
-export type Wallet = {
-  balance: number;
-  hostedCalls: number;
-};
-
-export type LedgerEntry = {
-  id: number;
-  delta: number;
-  reason: string;
-  createdAt: string;
-};
-
 export type NovelDetail = {
   novel: Novel;
   outline: OutlineNode[];

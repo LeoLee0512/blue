@@ -187,7 +187,11 @@ function Login() {
                     onChange={(event) => setAdultConfirmed(event.target.checked)}
                     required
                   />
-                  <span>我已年满 18 周岁，并同意《用户协议》《隐私政策》</span>
+                  <span>
+                    我已年满 18 周岁，并同意
+                    <Link to="/terms" className="underline-offset-4 hover:underline">《用户协议》</Link>
+                    <Link to="/privacy" className="underline-offset-4 hover:underline">《隐私政策》</Link>
+                  </span>
                 </label>
               ) : null}
               {error ? <p className="text-sm text-ink">{error}</p> : null}
@@ -213,9 +217,7 @@ function Login() {
                 忘记密码
               </button>
             ) : null}
-            {/* 2026-11-01：第三方登录按钮已下线（原代码见 login.tsx.bak_20261101_sam_a1）。 */}
             {authEnabled ? null : <p className="mt-4 text-sm text-mist">登录暂未开放。</p>}
-            <p className="mt-4 text-sm leading-relaxed text-faint">原来用 X 登录的用户，请注册邮箱账户。</p>
           </div>
           <p className="mt-4 text-center text-sm leading-relaxed text-faint">
             大纲、正文和密钥只属于你的账户。点「注册」就能进书桌。

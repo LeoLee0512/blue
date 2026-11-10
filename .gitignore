@@ -15,3 +15,5 @@ src/lib/auth/preview.ts
 .env
 .env.*
 !.env.example
+plan/
+review/

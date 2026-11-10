@@ -2,22 +2,9 @@ import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { clientErrorFromThrown, sanitizeClientResult } from "./client-error";
 import type { Sql } from "@/lib/db";
-import type { AccountSnapshot, Chapter, Character, Leaf, LedgerEntry, Novel, NovelDetail, OutlineNode, Settings, SharedLeaf, SourceNote, UsageDay, VoiceDocs, Wallet } from "./types";
-import type { Seat } from "./plan.server";
+import type { AccountSnapshot, Chapter, Character, Leaf, Novel, NovelDetail, OutlineNode, Settings, SharedLeaf, SourceNote, UsageDay, VoiceDocs } from "./types";
 
 type Err = { ok: false; error: string; code?: string };
-const PAYMENT_DISABLED = "蓝稿已全部免费，不再提供充值或订阅。";
-
-// 2026-11-01 全免费：计费类接口服务端一律 410 Gone。
-async function gone(): Promise<Err> {
-  try {
-    const { setResponseStatus } = await import("@tanstack/react-start/server");
-    setResponseStatus(410);
-  } catch {
-    // 拿不到响应对象时（如单元测试直接调用）只返回错误体。
-  }
-  return { ok: false as const, error: PAYMENT_DISABLED };
-}
 
 async function run<T>(userId: string, fn: (sql: Sql) => Promise<T>): Promise<T | Err> {
   try {
@@ -215,16 +202,6 @@ export const saveToolset = createServerFn({ method: "POST" })
     });
   });
 
-export const buyPack = createServerFn({ method: "POST" })
-  .validator((input: { packId: string }) => input)
-  .middleware([authMiddleware])
-  .handler(async ({ context, data }): Promise<{ ok: true; wallet: Wallet; entry: LedgerEntry } | Err> => {
-    // 安全修复（2026-10-30 Sam）：真实支付接入前，服务端关闭充值，防止无限领墨点。
-    void context;
-    void data;
-    return gone();
-  });
-
 export const saveStudio = createServerFn({ method: "POST" })
   .validator((input: { wild?: boolean; web?: boolean; thinking?: string }) => input)
   .middleware([authMiddleware])
@@ -383,16 +360,6 @@ export const extendLeaf = createServerFn({ method: "POST" })
       if (!result.ok) return result;
       return { ok: true as const, text: result.text };
     });
-  });
-
-export const takeSeat = createServerFn({ method: "POST" })
-  .validator((input: { plan: string }) => input)
-  .middleware([authMiddleware])
-  .handler(async ({ context, data }): Promise<{ ok: true; plan: Seat } | Err> => {
-    // 2026-11-01 全免费：订阅接口下线（原实现见 api.ts.bak_20261101_sam_b1）。
-    void context;
-    void data;
-    return gone();
   });
 
 // 注销账号（2026-10-30 Sam）：前端二次确认后，必须原样提交确认文字「注销账号」才执行。

@@ -4,9 +4,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { copyPublishDir, includeInPublish, missingPackageAssets } from "./make-publish-dir.mjs";
+import { assertPublishDest, copyPublishDir, includeInPublish, missingPackageAssets } from "./make-publish-dir.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("rejects a destination whose name starts with a dash", () => {
+  assert.throws(() => assertPublishDest("--help"), /must not start with '-'/);
+  assert.throws(() => copyPublishDir(root, "--help"), /must not start with '-'/);
+  assert.equal(fs.existsSync(path.join(process.cwd(), "--help")), false);
+});
 
 test("allowlist rejects secrets, backups, dependencies, and platform assets", () => {
   assert.equal(includeInPublish("src/lib/auth/server.ts"), true);

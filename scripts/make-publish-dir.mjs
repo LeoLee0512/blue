@@ -121,7 +121,17 @@ export function missingPackageAssets(dest) {
   return missing;
 }
 
+export function assertPublishDest(dest) {
+  if (typeof dest !== "string" || !dest.trim()) {
+    throw new Error("usage: node scripts/make-publish-dir.mjs <dest>");
+  }
+  if (dest.split(/[\\/]/).some((part) => part.startsWith("-"))) {
+    throw new Error("publish directory must not start with '-'");
+  }
+}
+
 export function copyPublishDir(source, dest) {
+  assertPublishDest(dest);
   fs.mkdirSync(dest, { recursive: true });
   const copied = [];
   const walk = (dir) => {
@@ -152,8 +162,10 @@ function isMain() {
 
 if (isMain()) {
   const dest = process.argv[2];
-  if (!dest) {
-    console.error("usage: node scripts/make-publish-dir.mjs <dest>");
+  try {
+    assertPublishDest(dest);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
     process.exit(2);
   }
   const copied = copyPublishDir(path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."), path.resolve(dest));

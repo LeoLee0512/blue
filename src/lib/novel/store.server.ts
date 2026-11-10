@@ -9,17 +9,14 @@ import {
   EMPTY_ACTS,
   EMPTY_VOICE,
   GENRES,
-  INK,
   knownPluginIds,
   knownSkillIds,
-  packById,
 } from "./catalog";
 import type {
   AccountSnapshot,
   Chapter,
   Character,
   ChatMessage,
-  LedgerEntry,
   Novel,
   NovelDetail,
   NodeKind,
@@ -28,7 +25,6 @@ import type {
   SourceNote,
   UsageDay,
   VoiceDocs,
-  Wallet,
 } from "./types";
 
 type NovelRow = {
@@ -93,16 +89,14 @@ type ProfileRow = {
   context_used?: number | null;
 };
 
-type WalletRow = { balance: number; hosted_calls: number };
-type LedgerRow = { id: number; delta: number; reason: string; created_at: unknown };
-
 export function nid(prefix: string): string {
   return `${prefix}_${crypto.randomUUID().replace(/-/g, "").slice(0, 18)}`;
 }
 
 export function clip(value: unknown, max: number): string {
   return String(value ?? "")
-    .replace(/\u0000/g, "")
+    .split(String.fromCharCode(0))
+    .join("")
     .trim()
     .slice(0, max);
 }
@@ -210,9 +204,9 @@ function maskStoredKey(stored: string, userId: string): string {
     return maskKey(openSecret(stored, userId));
   } catch (error) {
     if (error instanceof SecretBoxError) {
-      if (error.code === "KEY_LEGACY_UNAVAILABLE") return "缺旧密钥";
-      if (error.code === "KEY_BOX_UNAVAILABLE") return "不能加密";
-      return "无法读取";
+      if (error.code === "KEY_LEGACY_UNAVAILABLE") return "缺少旧密钥";
+      if (error.code === "KEY_BOX_UNAVAILABLE") return "还不能加密";
+      return "读不出来";
     }
     throw error;
   }
@@ -805,80 +799,6 @@ export async function saveToolset(sql: Sql, userId: string, input: { skills: str
     from profiles where user_id = ${userId}
   `;
   return mapSettings(next[0], userId);
-}
-
-export async function recharge(sql: Sql, userId: string, packId: string): Promise<
-  | { ok: true; wallet: Wallet; entry: LedgerEntry }
-  | { ok: false; error: string }
-> {
-  await ensureAccount(sql, userId);
-  const pack = packById(packId);
-  if (!pack) return { ok: false, error: "没有这个额度包" };
-  const rows = await sql<WalletRow>`
-    update wallets set balance = balance + ${pack.points}, updated_at = now()
-    where user_id = ${userId}
-    returning balance, hosted_calls
-  `;
-  const reason = `充值 · ${pack.name}`;
-  const ledger = await sql<LedgerRow>`
-    insert into ledger (user_id, delta, reason)
-    values (${userId}, ${pack.points}, ${reason})
-    returning id, delta, reason, created_at
-  `;
-  const wallet = rows[0];
-  const entry = ledger[0];
-  return {
-    ok: true,
-    wallet: { balance: Number(wallet.balance) || 0, hostedCalls: Number(wallet.hosted_calls) || 0 },
-    entry: {
-      id: Number(entry.id),
-      delta: Number(entry.delta) || 0,
-      reason: entry.reason,
-      createdAt: stamp(entry.created_at),
-    },
-  };
-}
-
-export async function readWallet(sql: Sql, userId: string): Promise<Wallet> {
-  const rows = await sql<WalletRow>`
-    select balance, hosted_calls from wallets where user_id = ${userId}
-  `;
-  const wallet = rows[0];
-  return { balance: Number(wallet?.balance) || 0, hostedCalls: Number(wallet?.hosted_calls) || 0 };
-}
-
-export async function chargeHosted(
-  sql: Sql,
-  userId: string,
-  reason = "落笔",
-  cost: number = INK.turnCost,
-  countCall = true,
-): Promise<Wallet | null> {
-  const rows = countCall
-    ? await sql<WalletRow>`
-        update wallets
-        set balance = balance - ${cost},
-            hosted_calls = hosted_calls + 1,
-            updated_at = now()
-        where user_id = ${userId}
-          and balance >= ${cost}
-          and hosted_calls < ${INK.hostedCap}
-        returning balance, hosted_calls
-      `
-    : await sql<WalletRow>`
-        update wallets
-        set balance = balance - ${cost},
-            updated_at = now()
-        where user_id = ${userId}
-          and balance >= ${cost}
-        returning balance, hosted_calls
-      `;
-  if (!rows[0]) return null;
-  await sql`
-    insert into ledger (user_id, delta, reason)
-    values (${userId}, ${-cost}, ${reason})
-  `;
-  return { balance: Number(rows[0].balance) || 0, hostedCalls: Number(rows[0].hosted_calls) || 0 };
 }
 
 export async function addMessage(
