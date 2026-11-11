@@ -17,10 +17,11 @@ test("关于页只读 PROVIDER_FAMILIES，必写两句在，不含密钥和 comp
   assert.equal(about.includes(String.fromCharCode(0x5317, 0x4eac, 0x5e02, 0x5927, 0x5174, 0x533a)), false);
   assert.equal(about.includes(["620", "026", "600"].join("")), false);
   assert.doesNotMatch(about, /存放在中华人民共和国境内的服务器上/);
-  assert.match(about, /保存在中华人民共和国境内/);
+  assert.match(about, /保存在这台电脑上/);
   assert.doesNotMatch(about, /不把它写成已经完成的事实/);
-  assert.match(about, /to="\/terms"/);
-  assert.match(about, /to="\/privacy"/);
+  assert.doesNotMatch(about, /to="\/terms"/);
+  assert.doesNotMatch(about, /to="\/privacy"/);
+  assert.doesNotMatch(about, /ICP|公安备案|生成式人工智能登记/);
   assert.match(about, /listedModelCount\(\)/);
   assert.doesNotMatch(about, /41 个可选模型/);
   assert.doesNotMatch(about, /备案单位|entity/);

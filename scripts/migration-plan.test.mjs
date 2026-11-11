@@ -57,12 +57,8 @@ test("non-.sql entries are dropped (readdir also yields the auth/ directory)", (
 });
 
 test("the auth schema source ships in migrations/auth/ and never runs from there", () => {
-  // Template state: migrations/ held no .sql at all. 蓝稿 ships with sign-in on
-  // and its own app tables, so the globbed directory now holds the auth copy
-  // (0001_auth.sql) plus the app migrations. Keep the invariants that matter:
-  // the auth source exists, the `auth/` directory itself is never treated as a
-  // migration, every pending entry is a real .sql, and no migration is listed
-  // (or would run) twice.
+  // The user table stays so works can reference one local owner. migrations/auth/
+  // is the byte-identical source and is not executed from that folder.
   const migrationsDir = join(projectRoot(), "migrations");
   const entries = readdirSync(migrationsDir);
   assert.ok(readdirSync(join(migrationsDir, "auth")).includes("0001_auth.sql"));

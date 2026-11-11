@@ -1,90 +1,89 @@
 #!/usr/bin/env node
 /**
- * Deploy-time database migrator (node-postgres, `pg`).
+ * Apply migrations/*.sql to the local PGLite directory.
  *
- * Runs during `npm run build` — on every Vercel deploy — applying pending files
- * in ../migrations to DATABASE_URL. Each file is applied in one transaction and
- * recorded in a `_migrations` table, so it runs once and is safe to re-run.
- *
- * The read is non-recursive, so the opt-in auth schema under migrations/auth/
- * is not applied to an app that never asked for sign-in.
- *
- * No DATABASE_URL (local / preview builds) -> skip; the PGLite fallback applies
- * the same files at startup instead (see src/lib/db.ts).
+ * The running app does this on startup as well. This command is for a manual
+ * check: `LANGAO_DATA_DIR=... npm run db:migrate`.
  */
+import { mkdirSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-import pg from "pg";
+import { PGlite } from "@electric-sql/pglite";
 import { pendingMigrations } from "./migration-plan.mjs";
-
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  console.log(
-    "[migrate] DATABASE_URL not set — skipping (the PGLite fallback migrates itself).",
-  );
-  process.exit(0);
-}
+import { dataDir, pgliteDir } from "./data-dir.mjs";
+import { ensureInstallKey } from "./install-key.mjs";
 
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
 
-async function main() {
-  let entries;
+async function listNames() {
   try {
-    entries = await readdir(migrationsDir);
+    return await readdir(migrationsDir);
   } catch {
-    console.log("[migrate] no migrations/ directory — nothing to do.");
-    return;
+    return [];
   }
-  // An app with no schema of its own must not pay for a database connection.
-  if (pendingMigrations(entries, []).length === 0) {
+}
+
+async function main() {
+  if (process.env.DATABASE_URL?.trim()) {
+    console.log("[migrate] 桌面版只使用本机 PGLite，已忽略 DATABASE_URL。");
+  }
+  ensureInstallKey({ force: true });
+  const names = await listNames();
+  if (pendingMigrations(names, []).length === 0) {
     console.log("[migrate] no migrations — nothing to do.");
     return;
   }
-
-  const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
-  const client = await pool.connect();
+  const dir = pgliteDir();
+  mkdirSync(dir, { recursive: true });
+  const db = new PGlite(dir);
   try {
-    await client.query(
-      "CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())",
+    await db.waitReady;
+    await db.exec(
+      "create table if not exists _migrations (name text primary key, applied_at timestamptz not null default now())",
     );
-    const applied = (await client.query("SELECT name FROM _migrations")).rows.map(
-      (r) => r.name,
+    const applied = (await db.query("select name from _migrations")).rows.map(
+      (row) => /** @type {{ name: string }} */ (row).name,
     );
-
     let count = 0;
-    for (const { name } of pendingMigrations(entries, applied)) {
+    for (const { name } of pendingMigrations(names, applied)) {
       const text = await readFile(join(migrationsDir, name), "utf8");
       try {
-        await client.query("BEGIN");
-        // pg's simple-query protocol runs a whole multi-statement file at once.
-        await client.query(text);
-        await client.query("INSERT INTO _migrations (name) VALUES ($1)", [name]);
-        await client.query("COMMIT");
+        await db.exec("begin");
+        await db.exec(text);
+        await db.query("insert into _migrations (name) values ($1)", [name]);
+        await db.exec("commit");
       } catch (err) {
         console.error(`[migrate] error applying ${name}`);
         try {
-          await client.query("ROLLBACK");
+          await db.exec("rollback");
         } catch {
-          // ROLLBACK fails when the connection died — keep the original error.
+          // keep the original error
         }
         throw err;
       }
       console.log(`[migrate] applied ${name}`);
       count += 1;
     }
-    console.log(count ? `[migrate] done — ${count} migration(s) applied.` : "[migrate] up to date.");
+    await db.query(
+      `insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+       values ('local', '本地用户', 'local@desktop', true, now(), now())
+       on conflict (id) do nothing`,
+    );
+    console.log(
+      count
+        ? `[migrate] done — ${count} migration(s) applied. data: ${dataDir()}`
+        : `[migrate] up to date. data: ${dataDir()}`,
+    );
   } finally {
-    client.release();
-    await pool.end();
+    await db.close();
   }
 }
 
-main().catch((err) => {
-  console.error("[migrate] failed:", err?.message || err);
-  // pg errors carry the context needed to debug a bad SQL file.
-  for (const key of ["code", "detail", "hint", "position", "where"]) {
-    if (err?.[key] != null) console.error(`[migrate]   ${key}: ${err[key]}`);
-  }
-  process.exit(1);
-});
+const entry = process.argv[1] ? resolve(process.argv[1]) : "";
+if (entry === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    console.error("[migrate] failed:", err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
+}

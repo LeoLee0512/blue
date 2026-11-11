@@ -65,17 +65,9 @@ test("an explicit process-env override wins over the file", () => {
   assert.equal(merged.PATH, "/usr/bin");
 });
 
-// 蓝稿 ships with sign-in ON. The app env must therefore never switch auth off:
-// `VITE_AUTH_ENABLED` is either absent (the default is "on") or an explicit
-// "true". An accidental "false" (the old template default) would make
-// requireUserId fall back to the shared dev user, so fail loudly on it.
-test("the shipped app-env keeps auth enabled", () => {
+test("the desktop app does not ship a sign-in flag", () => {
   const env = readAppEnv(projectRoot());
-  assert.notEqual(env.VITE_AUTH_ENABLED, "false");
-  assert.ok(
-    env.VITE_AUTH_ENABLED === undefined || env.VITE_AUTH_ENABLED === "true",
-    `unexpected VITE_AUTH_ENABLED in .grok/app-env.json: ${env.VITE_AUTH_ENABLED}`,
-  );
+  assert.equal(env.VITE_AUTH_ENABLED, undefined);
 });
 
 test("vite loadEnv resolves the wrapped value", () => {

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { authMiddleware } from "@/lib/auth/middleware";
+import { localUserMiddleware } from "@/lib/local-session";
 import { clientErrorFromThrown, sanitizeClientResult } from "./client-error";
 import type { Sql } from "@/lib/db";
 import type { AccountSnapshot, Chapter, Character, Leaf, Novel, NovelDetail, OutlineNode, Settings, SharedLeaf, SourceNote, UsageDay, VoiceDocs } from "./types";
@@ -10,13 +10,8 @@ async function run<T>(userId: string, fn: (sql: Sql) => Promise<T>): Promise<T |
   try {
     const { getSql } = await import("@/lib/db");
     const sql = await getSql();
-    // 注销后 cookieCache 窗口内旧 Cookie 仍能过鉴权：所有接口统一先确认用户还在（Jim s6 H1 / s8）。
-    // 2026-11-03：关闭登录的开发模式下，dev-user 也要有 "user" 行（0013 外键需要）。生产环境不会走到这里（verify.server 启动即失败）。
-    if (userId === "dev-user" && process.env.NODE_ENV !== "production" && process.env.VITE_AUTH_ENABLED?.trim() === "false") {
-      await sql`insert into "user" (id, name, email, "emailVerified") values ('dev-user', 'Dev User', 'dev-user@localhost', true) on conflict (id) do nothing`;
-    }
-    const alive = await sql<{ id: string }>`select id from "user" where id = ${userId} limit 1`;
-    if (!alive[0]) throw new Error("ACCOUNT_GONE");
+    const { ensureLocalUser } = await import("@/lib/local-user.server");
+    await ensureLocalUser(sql, userId);
     return sanitizeClientResult(await fn(sql));
   } catch (error) {
     return clientErrorFromThrown(error);
@@ -24,7 +19,7 @@ async function run<T>(userId: string, fn: (sql: Sql) => Promise<T>): Promise<T |
 }
 
 export const bootstrap = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context }): Promise<{ ok: true; account: AccountSnapshot } | Err> => {
     const result = await run(context.userId, async (sql) => {
       const { readAccount } = await import("./store.server");
@@ -35,7 +30,7 @@ export const bootstrap = createServerFn({ method: "GET" })
 
 export const loadNovel = createServerFn({ method: "POST" })
   .validator((input: { novelId: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; detail: NovelDetail | null } | Err> => {
     return run(context.userId, async (sql) => {
       const { readDetail } = await import("./store.server");
@@ -45,7 +40,7 @@ export const loadNovel = createServerFn({ method: "POST" })
 
 export const createNovel = createServerFn({ method: "POST" })
   .validator((input: { title: string; genre: string; logline: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; novel: Novel } | Err> => {
     return run(context.userId, async (sql) => {
       const { createNovel: insertNovel } = await import("./store.server");
@@ -55,7 +50,7 @@ export const createNovel = createServerFn({ method: "POST" })
 
 export const updateNovel = createServerFn({ method: "POST" })
   .validator((input: { id: string; title: string; genre: string; logline: string; premise: string; styleNotes: string; soFar: string; ledger?: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; novel: Novel | null } | Err> => {
     return run(context.userId, async (sql) => {
       const { updateNovel: editNovel } = await import("./store.server");
@@ -65,7 +60,7 @@ export const updateNovel = createServerFn({ method: "POST" })
 
 export const removeNovel = createServerFn({ method: "POST" })
   .validator((input: { novelId: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true } | Err> => {
     return run(context.userId, async (sql) => {
       const { deleteNovel } = await import("./store.server");
@@ -77,7 +72,7 @@ export const removeNovel = createServerFn({ method: "POST" })
 
 export const saveOutlineNode = createServerFn({ method: "POST" })
   .validator((input: { novelId: string; id?: string; parentId?: string | null; kind: string; title: string; summary: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; node: OutlineNode | null } | Err> => {
     return run(context.userId, async (sql) => {
       const { saveNode } = await import("./store.server");
@@ -87,7 +82,7 @@ export const saveOutlineNode = createServerFn({ method: "POST" })
 
 export const removeOutlineNode = createServerFn({ method: "POST" })
   .validator((input: { novelId: string; nodeId: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true } | Err> => {
     return run(context.userId, async (sql) => {
       const { deleteNode } = await import("./store.server");
@@ -99,7 +94,7 @@ export const removeOutlineNode = createServerFn({ method: "POST" })
 
 export const applyTemplate = createServerFn({ method: "POST" })
   .validator((input: { novelId: string; force: boolean }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true } | Err> => {
     return run(context.userId, async (sql) => {
       const { applyEmptyActs } = await import("./store.server");
@@ -111,7 +106,7 @@ export const applyTemplate = createServerFn({ method: "POST" })
 
 export const saveChapterText = createServerFn({ method: "POST" })
   .validator((input: { novelId: string; id?: string; title: string; body: string; nodeId?: string | null }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; chapter: Chapter | null; today: UsageDay } | Err> => {
     return run(context.userId, async (sql) => {
       const { saveChapter, noteUsage } = await import("./store.server");
@@ -123,7 +118,7 @@ export const saveChapterText = createServerFn({ method: "POST" })
 
 export const removeChapterText = createServerFn({ method: "POST" })
   .validator((input: { novelId: string; chapterId: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true } | Err> => {
     return run(context.userId, async (sql) => {
       const { deleteChapter } = await import("./store.server");
@@ -135,7 +130,7 @@ export const removeChapterText = createServerFn({ method: "POST" })
 
 export const savePerson = createServerFn({ method: "POST" })
   .validator((input: { novelId: string; id?: string; name: string; role: string; bio: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; character: Character | null } | Err> => {
     return run(context.userId, async (sql) => {
       const { saveCharacter } = await import("./store.server");
@@ -145,7 +140,7 @@ export const savePerson = createServerFn({ method: "POST" })
 
 export const removePerson = createServerFn({ method: "POST" })
   .validator((input: { novelId: string; characterId: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true } | Err> => {
     return run(context.userId, async (sql) => {
       const { deleteCharacter } = await import("./store.server");
@@ -180,7 +175,7 @@ export const saveConnection = createServerFn({ method: "POST" })
     if (input.apiKey !== undefined && typeof input.apiKey !== "string") throw new Error("参数无效");
     return input;
   })
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; settings: Settings } | Err> => {
     return run(context.userId, async (sql) => {
       const { saveSettings } = await import("./store.server");
@@ -194,7 +189,7 @@ export const saveToolset = createServerFn({ method: "POST" })
     if (!input || typeof input !== "object" || !strs(input.skills) || !strs(input.plugins)) throw new Error("参数无效");
     return input;
   })
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; settings: Settings } | Err> => {
     return run(context.userId, async (sql) => {
       const { saveToolset: save } = await import("./store.server");
@@ -204,7 +199,7 @@ export const saveToolset = createServerFn({ method: "POST" })
 
 export const saveStudio = createServerFn({ method: "POST" })
   .validator((input: { wild?: boolean; web?: boolean; thinking?: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; settings: Settings } | Err> => {
     return run(context.userId, async (sql) => {
       const { saveStudio: writeStudio } = await import("./store.server");
@@ -214,7 +209,7 @@ export const saveStudio = createServerFn({ method: "POST" })
 
 export const reviewNovel = createServerFn({ method: "POST" })
   .validator((input: { novelId: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }) => {
     return run(context.userId, async (sql) => {
       const { reviewBook } = await import("./engine.server");
@@ -224,7 +219,7 @@ export const reviewNovel = createServerFn({ method: "POST" })
 
 export const runAgent = createServerFn({ method: "POST" })
   .validator((input: { novelId: string; prompt: string; view: string; intent?: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }) => {
     return run(context.userId, async (sql) => {
       const { runNovelAgent } = await import("./engine.server");
@@ -233,7 +228,7 @@ export const runAgent = createServerFn({ method: "POST" })
   });
 
 export const pingModel = createServerFn({ method: "POST" })
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context }) => {
     return run(context.userId, async (sql) => {
       const { testCustomConnection } = await import("./engine.server");
@@ -243,7 +238,7 @@ export const pingModel = createServerFn({ method: "POST" })
 
 export const saveVoice = createServerFn({ method: "POST" })
   .validator((input: { portrait: string; touch: string; preference: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; voice: VoiceDocs } | Err> => {
     return run(context.userId, async (sql) => {
       const { saveVoice: writeVoice } = await import("./store.server");
@@ -253,7 +248,7 @@ export const saveVoice = createServerFn({ method: "POST" })
 
 export const seedFromLine = createServerFn({ method: "POST" })
   .validator((input: { sentence: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; novel: Novel; detail: NovelDetail; today: UsageDay | null } | Err> => {
     return run(context.userId, async (sql) => {
       const { beginFromLine } = await import("./engine.server");
@@ -263,7 +258,7 @@ export const seedFromLine = createServerFn({ method: "POST" })
 
 export const learnText = createServerFn({ method: "POST" })
   .validator((input: { kind: string; title: string; body: string; novelId?: string; via?: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<
     | { ok: true; voice: VoiceDocs; sources: SourceNote[]; spent: number; note: string; detail: NovelDetail | null }
     | Err
@@ -283,7 +278,7 @@ export const learnText = createServerFn({ method: "POST" })
   });
 
 export const loadShelf = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context }): Promise<{ ok: true; poems: Leaf[]; notes: Leaf[]; shares: SharedLeaf[] } | Err> => {
     return run(context.userId, async (sql) => {
       const { readShelf } = await import("./pages.server");
@@ -293,7 +288,7 @@ export const loadShelf = createServerFn({ method: "GET" })
 
 export const saveLeaf = createServerFn({ method: "POST" })
   .validator((input: { id?: string; kind: string; title: string; body: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; leaf: Leaf } | Err> => {
     return run(context.userId, async (sql) => {
       const { saveLeaf: writeLeaf } = await import("./pages.server");
@@ -305,7 +300,7 @@ export const saveLeaf = createServerFn({ method: "POST" })
 
 export const removeLeaf = createServerFn({ method: "POST" })
   .validator((input: { id: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true } | Err> => {
     return run(context.userId, async (sql) => {
       const { removeLeaf: dropLeaf } = await import("./pages.server");
@@ -317,7 +312,7 @@ export const removeLeaf = createServerFn({ method: "POST" })
 
 export const publishText = createServerFn({ method: "POST" })
   .validator((input: { kind: string; title: string; body: string; sourceId?: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true } | Err> => {
     return run(context.userId, async (sql) => {
       const { publishText: share } = await import("./pages.server");
@@ -328,7 +323,7 @@ export const publishText = createServerFn({ method: "POST" })
   });
 
 export const exportMyShares = createServerFn({ method: "GET" })
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context }): Promise<{ ok: true; markdown: string } | Err> => {
     return run(context.userId, async (sql) => {
       const { exportOwnShares } = await import("./pages.server");
@@ -338,7 +333,7 @@ export const exportMyShares = createServerFn({ method: "GET" })
 
 export const unpublishText = createServerFn({ method: "POST" })
   .validator((input: { id: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true } | Err> => {
     return run(context.userId, async (sql) => {
       const { unpublishText: drop } = await import("./pages.server");
@@ -350,7 +345,7 @@ export const unpublishText = createServerFn({ method: "POST" })
 
 export const extendLeaf = createServerFn({ method: "POST" })
   .validator((input: { kind: string; body: string }) => input)
-  .middleware([authMiddleware])
+  .middleware([localUserMiddleware])
   .handler(async ({ context, data }): Promise<{ ok: true; text: string } | Err> => {
     const kind = data.kind === "note" ? "note" : data.kind === "poem" ? "poem" : "";
     if (!kind) return { ok: false, error: "不知道这是诗还是手记" };
@@ -359,21 +354,5 @@ export const extendLeaf = createServerFn({ method: "POST" })
       const result = await continueLines(sql, context.userId, { kind, body: data.body });
       if (!result.ok) return result;
       return { ok: true as const, text: result.text };
-    });
-  });
-
-// 注销账号（2026-10-30 Sam）：前端二次确认后，必须原样提交确认文字「注销账号」才执行。
-export const DELETE_ACCOUNT_CONFIRM = "注销账号";
-
-export const deleteAccount = createServerFn({ method: "POST" })
-  .validator((input: { confirm: string }) => input)
-  .middleware([authMiddleware])
-  .handler(async ({ context, data }): Promise<{ ok: true } | Err> => {
-    if (data.confirm !== DELETE_ACCOUNT_CONFIRM) return { ok: false as const, error: "请输入「注销账号」确认" };
-    return run(context.userId, async (sql) => {
-      const users = await sql<{ email: string }>`select "email" from "user" where "id" = ${context.userId}`;
-      const { deleteAccountData } = await import("./store.server");
-      await deleteAccountData(sql, context.userId, users[0]?.email ?? "");
-      return { ok: true as const };
     });
   });

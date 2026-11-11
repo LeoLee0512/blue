@@ -3,8 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { BookOpen, Cable, CalendarDays, Feather, Layers, ListTree, NotebookPen, PenLine, Puzzle, Quote, ScrollText, type LucideIcon } from "lucide-react";
 import { GENRES, PLUGINS, SKILLS, VOICE_SKILLS } from "@/lib/novel/catalog";
 import { countChars, childrenOf, downloadMarkdown, exportMarkdown, todayKey, openThreads, storyNet, threadPreview, chapterFact, driftNote, reviewSides } from "@/lib/novel/format";
-import { DELETE_ACCOUNT_CONFIRM, deleteAccount, exportMyShares } from "@/lib/novel/api"; // publishText 2026-11-02 下线
-import { signOut } from "@/lib/auth/client";
+import { exportMyShares } from "@/lib/novel/api"; // publishText 2026-11-02 下线
 import type { OutlineNode } from "@/lib/novel/types";
 import type { PaneId } from "@/components/desk";
 import { useDesk } from "@/components/desk";
@@ -1009,7 +1008,6 @@ function ConnectPane() {
         {blocker ? <span className="text-sm text-faint">{blocker}</span> : null}
       </div>
       <ExportSharesZone />
-      <DeleteAccountZone />
     </form>
   );
 }
@@ -1190,35 +1188,3 @@ function ExportSharesZone() {
   );
 }
 
-// 注销账号（2026-10-30 Sam）：两次确认——先弹窗说明后果，再要求输入「注销账号」。
-function DeleteAccountZone() {
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-  async function onDelete() {
-    setError("");
-    if (!window.confirm("注销后，你的全部作品、大纲、人物、设置和账号都会被永久删除，无法恢复。确定继续吗？")) return;
-    const typed = window.prompt(`请输入「${DELETE_ACCOUNT_CONFIRM}」以确认`);
-    if (typed !== DELETE_ACCOUNT_CONFIRM) {
-      if (typed !== null) setError("输入不一致，已取消。");
-      return;
-    }
-    setPending(true);
-    const result = await deleteAccount({ data: { confirm: typed } });
-    if (!result.ok) {
-      setError(result.error);
-      setPending(false);
-      return;
-    }
-    await signOut("/login");
-  }
-  return (
-    <div className="mt-10 border-t border-line pt-6">
-      <h3 className="font-serif text-xl">注销账号</h3>
-      <p className="mt-2 text-sm leading-relaxed text-mist">永久删除账号和这个账号下的全部数据。</p>
-      {error ? <p className="mt-2 text-sm text-ink">{error}</p> : null}
-      <Button type="button" variant="quiet" className="mt-3" disabled={pending} onClick={() => void onDelete()}>
-        {pending ? "正在注销…" : "注销账号"}
-      </Button>
-    </div>
-  );
-}
