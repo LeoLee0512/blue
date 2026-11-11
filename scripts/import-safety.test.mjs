@@ -6,19 +6,33 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-test("preview shared-secret module is absent and not imported", () => {
+test("desktop app has no sign-in server or shared preview secret", () => {
   assert.equal(fs.existsSync(path.join(root, "src/lib/auth/preview.ts")), false);
-  const server = fs.readFileSync(path.join(root, "src/lib/auth/server.ts"), "utf8");
-  assert.doesNotMatch(server, /from\s+["']\.\/preview["']/);
-  assert.doesNotMatch(server, /PREVIEW_CLIENT_SECRET|PREVIEW_CLIENT_ID|PREVIEW_ALLOWED_HOSTS|GROK_ISSUER_DEFAULT/);
-  assert.doesNotMatch(server, /genericOAuth|gateIdentitySessions/);
-  assert.doesNotMatch(server, /headers\.get\(\s*["']x-grok-identity["']\)/);
-  assert.match(server, /emailAndPasswordEnabled/);
-  assert.match(server, /authConfigured = !authDisabled && emailAndPasswordEnabled/);
+  assert.equal(fs.existsSync(path.join(root, "src/lib/auth/server.ts")), false);
+  assert.equal(fs.existsSync(path.join(root, "src/routes/login.tsx")), false);
+  const banned = [];
+  const skip = new Set(["node_modules", ".git", "publish", "dist", ".vercel", ".output", "release", ".data"]);
+  const walkSrc = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      if (skip.has(name)) continue;
+      const full = path.join(dir, name);
+      if (fs.statSync(full).isDirectory()) {
+        walkSrc(full);
+        continue;
+      }
+      if (!/\.(ts|tsx|mjs|js)$/.test(name) || name.includes(".test.")) continue;
+      const text = fs.readFileSync(full, "utf8");
+      if (/from\s+["']better-auth/.test(text) || /PREVIEW_CLIENT_SECRET|PREVIEW_CLIENT_ID|x-grok-identity/.test(text)) {
+        banned.push(path.relative(root, full));
+      }
+    }
+  };
+  walkSrc(root);
+  assert.deepEqual(banned, []);
 });
 
 test("import tree has no env file, compliance dir, or backup names", () => {
-  const skip = new Set(["node_modules", ".git", "publish", "dist", ".vercel"]);
+  const skip = new Set(["node_modules", ".git", "publish", "dist", ".vercel", ".output", "release", ".data"]);
   const bad = [];
   const walk = (dir) => {
     for (const name of fs.readdirSync(dir)) {

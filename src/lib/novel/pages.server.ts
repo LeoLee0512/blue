@@ -154,7 +154,7 @@ export async function exportOwnShares(sql: Sql, userId: string): Promise<string>
 }
 
 export async function unpublishText(sql: Sql, userId: string, id: string): Promise<boolean> {
-  // 2026-11-02 分享架下线：服务端拒绝删除分享（看不到的内容不能删；要删请导出后发邮件申请或注销账号）。
+  // 2026-11-02 分享架下线：服务端拒绝删除分享。导出仍可读到本人以前发布的快照。
   if (true as boolean) throw new Error(SHELF_OFF);
   const rows = await sql<{ id: string }>`
     delete from shares where id = ${clip(id, 40)} and user_id = ${userId}

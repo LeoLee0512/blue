@@ -21,6 +21,8 @@ migrations/
 server/
 scripts/
 public/（不含 public/__grok/）
+electron/
+.github/
 
 排除：
 node_modules、dist、.vercel、.output、.grok、publish、coverage、compliance

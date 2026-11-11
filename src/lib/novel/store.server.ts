@@ -243,10 +243,8 @@ function mapSettings(row: ProfileRow, userId: string): Settings {
 }
 
 export async function ensureAccount(sql: Sql, userId: string): Promise<void> {
-  // 注销后旧 Cookie 在 cookieCache 有效期内仍可通过鉴权；建账前必须确认用户仍存在，
-  // 否则会把已注销账号的 wallets/ledger/profiles/voice_docs 重新建出来（Jim s6 H1）。
-  const alive = await sql<{ id: string }>`select id from "user" where id = ${userId} limit 1`;
-  if (!alive[0]) throw new Error("ACCOUNT_GONE");
+  const { ensureLocalUser } = await import("@/lib/local-user.server");
+  await ensureLocalUser(sql, userId);
   // 2026-11-01 全免费：不再开钱包、不再写“开通赠送”墨点流水（wallets/ledger 表与旧数据保留，只停写）。
   const skills = DEFAULT_SKILLS.join(",");
   const plugins = DEFAULT_PLUGINS.join(",");
@@ -1139,22 +1137,3 @@ export async function addSource(sql: Sql, userId: string, kind: "work" | "favori
 
 
 
-/**
- * 注销账号：删除该用户在所有业务表（含 user_id 列）和登录表里的数据。2026-10-30 Sam 新增。
- * 用一条带 CTE 的 SQL 语句完成，保证要么全删、要么全不删。
- * 业务表清单从 information_schema 动态读取，以后新增带 user_id 的表也会被覆盖。
- */
-export async function deleteAccountData(sql: Sql, userId: string, email: string): Promise<{ tables: string[] }> {
-  const rows = await sql<{ table_name: string }>`
-    select c.table_name from information_schema.columns c
-    join information_schema.tables t on t.table_schema = c.table_schema and t.table_name = c.table_name
-    where c.table_schema = current_schema() and c.column_name = 'user_id' and t.table_type = 'BASE TABLE'
-    order by c.table_name
-  `;
-  const tables = rows.map((r) => r.table_name).filter((name) => /^[a-z_][a-z0-9_]*$/.test(name));
-  const ctes = tables.map((name, i) => `d${i} as (delete from "${name}" where user_id = $1)`);
-  ctes.push(`dv as (delete from "verification" where "identifier" = $2 or "value" = $1)`);
-  // session / account 通过外键 on delete cascade 随 "user" 一起删除
-  await sql.query(`with ${ctes.join(", ")} delete from "user" where "id" = $1`, [userId, email]);
-  return { tables };
-}

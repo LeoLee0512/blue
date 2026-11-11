@@ -6,6 +6,8 @@ dist/
 publish/
 coverage/
 compliance/
+.data/
+release/
 *.pem
 *.key
 *.bak

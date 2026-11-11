@@ -22,7 +22,7 @@ const ROOT_FILES = new Set([
   "eslint.config.mjs",
 ]);
 
-const ALLOW_PREFIX = ["src/", "migrations/", "server/", "scripts/", "public/"];
+const ALLOW_PREFIX = ["src/", "migrations/", "server/", "scripts/", "public/", "electron/", ".github/"];
 const DENY_DIR = new Set([
   "node_modules",
   "dist",
@@ -33,6 +33,8 @@ const DENY_DIR = new Set([
   "coverage",
   "publish",
   ".git",
+  ".data",
+  "release",
 ]);
 
 export function includeInPublish(rel, isDirectory = false) {

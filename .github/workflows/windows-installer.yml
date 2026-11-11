@@ -1,0 +1,36 @@
+# 构建 Windows 安装包，并上传为 Actions artifact。
+# 不会创建 GitHub Release。发布时由维护者下载 artifact，再到 Releases 页面手动附上 exe。
+name: Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: 配置 Electron 镜像
+        shell: bash
+        run: |
+          echo "ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/" >> "$GITHUB_ENV"
+          echo "ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/" >> "$GITHUB_ENV"
+          echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run dist:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: langao-windows
+          if-no-files-found: error
+          path: |
+            release/*.exe

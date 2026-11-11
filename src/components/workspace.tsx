@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { UserButton } from "@/lib/auth/gates";
-import { installAccountGoneGuard } from "@/lib/auth/account-gone.client";
+import { Link } from "@tanstack/react-router";
 import {
   applyTemplate,
   bootstrap,
@@ -30,11 +29,7 @@ import { DeskProvider, type Desk, type PaneId } from "@/components/desk";
 import { Center, NAV, NavList, NovelList } from "@/components/panes";
 import { cn } from "@/lib/cn";
 
-function blame(error: unknown): string {
-  const message = error instanceof Error ? error.message : "";
-  if (message === "Unauthorized" || message === "ACCOUNT_GONE" || /unauthorized/i.test(message)) {
-    return "登录已失效，请重新进入。";
-  }
+function blame(_error: unknown): string {
   return "没有完成";
 }
 
@@ -73,7 +68,6 @@ export function Workspace() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    installAccountGoneGuard(); // 2026-11-03：账号注销后自动退出登录
     let dead = false;
     bootstrap()
       .then((res) => {
@@ -615,7 +609,9 @@ export function Workspace() {
               指引
             </button>
           ) : null}
-          <UserButton />
+          <Link to="/about" className="min-h-11 shrink-0 px-2 text-sm leading-[2.75rem] text-faint">
+            关于
+          </Link>
         </header>
         {error || notice ? (
           <p className={cn("shrink-0 border-b border-line px-4 py-2 text-sm", error ? "text-ink" : "text-mist")}>{error || notice}</p>

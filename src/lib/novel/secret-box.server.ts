@@ -15,6 +15,7 @@
  * 坏密文和缺密钥都不改写原记录。不在这里迁移或轮换生产数据。
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { ensureInstallKey } from "../../../scripts/install-key.mjs";
 
 const V1 = "enc:v1:";
 const V2 = "enc:v2:";
@@ -61,6 +62,7 @@ export function assertProductionKeyEncryptionSecret(): void {
   }
 }
 
+ensureInstallKey();
 assertProductionKeyEncryptionSecret();
 
 function dedicatedKey(): Buffer {

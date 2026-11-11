@@ -1,23 +1,11 @@
 #!/usr/bin/env node
 /**
- * Run a command with `.grok/app-env.json` merged into its environment.
+ * Run a command with `.grok/app-env.json` merged into its environment, and
+ * point an unset `LANGAO_DATA_DIR` at `<repo>/.data` so `npm run dev` does not
+ * write into the machine-wide data directory.
  *
- * `dev`, `build` and `preview` all route through this wrapper, so the dev
- * server, the built bundle and the preview server can never disagree about
- * `VITE_AUTH_ENABLED` — a divergence that only shows up as a built-output
- * mismatch long after the fact. Anything that starts Vite directly bypasses it.
- *
- * Only `VITE_`-prefixed keys are honored: the file is a build flag carrier, not
- * a secret store, and only `VITE_` vars reach the browser anyway. A real
- * `process.env` entry always wins, so an explicit override still works.
- *
- * That precedence also means the file governs this workspace only. A deployed
- * build runs with the provider's project env, where the deployer sets
- * `VITE_AUTH_ENABLED` itself (today unconditionally `"true"`), so the deployed
- * flag is the platform's, not this file's.
- *
- * Vite picks the values up because `loadEnv` prefix-matches entries already in
- * `process.env`, which is why the merge has to happen before Vite starts.
+ * Only `VITE_`-prefixed keys from the file are honored. A real `process.env`
+ * entry always wins.
  */
 import { spawn } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
@@ -111,6 +99,9 @@ function main(argv) {
     process.exit(2);
   }
   const env = mergeAppEnv(readAppEnv(projectRoot()), process.env);
+  if (!String(env.LANGAO_DATA_DIR ?? "").trim()) {
+    env.LANGAO_DATA_DIR = join(projectRoot(), ".data");
+  }
   const child = spawn(command, args, { stdio: "inherit", env });
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
