@@ -112,6 +112,7 @@ const ALLOWED_MESSAGES = new Set<string>([
   "先选中一段文字，或把光标放在要续写的位置。",
   "这一段太长了，请分几次处理（单次最多 6000 字）。",
   "不认识这个写作工具。",
+  "已停止",
 ]);
 
 export function isClientErrorCode(code: string): code is ClientErrorCode {

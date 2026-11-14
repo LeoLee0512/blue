@@ -439,7 +439,7 @@ async function postChat(input: {
   return result;
 }
 
-function deepseekHost(url: string): boolean {
+export function deepseekHost(url: string): boolean {
   // 2026-11-04 Sam（Mia §5.6）：改读白名单里的 thinkingParam，不再按域名猜。旧写法保留在下方注释。
   try {
     const u = new URL(url);
@@ -565,7 +565,7 @@ const TOOL_LABEL: Record<string, string> = {
 
 type ModelDoor = { ok: true; url: string; apiKey: string; model: string } | { ok: false; error: string };
 
-function openModel(settings: Settings & { apiKey: string }): ModelDoor {
+export function openModel(settings: Settings & { apiKey: string }): ModelDoor {
   // 2026-11-01：不预设任何模型或地址，缺哪项就明确提示用户自己填写。
   const model = settings.model.trim();
   const base = settings.baseUrl.trim();
