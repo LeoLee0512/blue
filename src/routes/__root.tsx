@@ -1,5 +1,6 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { noFlashScript } from "@/lib/write/prefs";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -12,7 +13,7 @@ export const Route = createRootRoute({
         name: "description",
         content: "蓝稿是免费的中文写作工具。你填写自己的模型密钥，用来写小说和整理大纲。",
       },
-      { name: "theme-color", content: "#f4f7fb" },
+      { name: "theme-color", content: "#f3f5f8" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
@@ -21,8 +22,10 @@ export const Route = createRootRoute({
     ],
   }),
   component: () => (
-    <html lang="zh-CN" className="antialiased" suppressHydrationWarning>
+    <html lang="zh-CN" className="antialiased" data-palette="qinghua" suppressHydrationWarning>
       <head>
+        {/* 首屏前套上用户选的明暗与配色，避免闪白 */}
+        <script dangerouslySetInnerHTML={{ __html: noFlashScript() }} />
         <HeadContent />
       </head>
       <body className="bg-paper font-sans text-ink">

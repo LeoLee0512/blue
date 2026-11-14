@@ -35,20 +35,189 @@
 }
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * 设计令牌。颜色全部经由 CSS 变量，配色（data-palette）和深色（.dark）只改变量，
+ * 组件里只写语义色：paper 底色 / surface 面板 / sunk 侧栏 / page 稿纸 / ink 正文 /
+ * mist 次要文字 / faint 提示 / line 分隔线 / accent 主色。
+ */
 @theme {
-  --font-sans: "Source Sans 3", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  --font-serif: "Noto Serif SC", "Songti SC", "PMingLiU", serif;
-  --color-paper: #f4f0e8;
-  --color-surface: #faf8f4;
-  --color-ink: #2a2e2c;
-  --color-mist: #5e615c;
-  --color-faint: #8d887f;
-  --color-line: #e4ddd2;
-  --color-accent: #3d5a73;
-  --color-accent-ink: #2c4256;
-  --color-accent-soft: #e6eef2;
-  --color-accent-fg: #f7f4ee;
-  --radius-card: 1.5rem;
+  --font-sans: "Source Sans 3", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --font-editor: var(--editor-font);
+  --color-paper: #f3f5f8;
+  --color-surface: #ffffff;
+  --color-sunk: #eceff4;
+  --color-page: #fdfdfc;
+  --color-ink: #1f2933;
+  --color-mist: #52606d;
+  --color-faint: #8a96a3;
+  --color-line: #dde3ea;
+  --color-hover: #e6eaf0;
+  --color-accent: #2f5d8a;
+  --color-accent-ink: #224a70;
+  --color-accent-soft: #e3ecf5;
+  --color-accent-fg: #ffffff;
+  --color-danger: #b42318;
+  --color-danger-soft: #fdecea;
+  --color-ok: #2e7d4f;
+  --color-ok-soft: #e5f4ea;
+  --color-warn: #b7791f;
+  --color-ins: #dcf2e3;
+  --color-del: #fbe3e1;
+  --radius-card: 0.75rem;
+  --shadow-pop: 0 10px 30px -12px rgb(15 23 42 / 0.28), 0 2px 6px -2px rgb(15 23 42 / 0.12);
+  --shadow-page: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px -16px rgb(15 23 42 / 0.18);
+}
+
+:root {
+  --editor-font: "Noto Serif SC", "Songti SC", "SimSun", serif;
+  --editor-size: 18px;
+  --editor-leading: 1.9;
+  --editor-width: 36em;
+  --editor-indent: 2em;
+}
+
+/* ---------- 配色：浅色 ---------- */
+[data-palette="xuanzhi"] {
+  --color-paper: #f1ebdf;
+  --color-surface: #fbf8f2;
+  --color-sunk: #ebe3d4;
+  --color-page: #fffdf8;
+  --color-ink: #2d2620;
+  --color-mist: #625648;
+  --color-faint: #998b79;
+  --color-line: #e2d8c6;
+  --color-hover: #e7dece;
+  --color-accent: #8a5a2b;
+  --color-accent-ink: #6d4520;
+  --color-accent-soft: #f3e7d6;
+}
+[data-palette="zhuqing"] {
+  --color-paper: #eef3ee;
+  --color-surface: #fbfdfb;
+  --color-sunk: #e6ede6;
+  --color-page: #fdfefd;
+  --color-ink: #1f2b24;
+  --color-mist: #4f6157;
+  --color-faint: #86978d;
+  --color-line: #d8e3da;
+  --color-hover: #dfe8e0;
+  --color-accent: #3f7a5a;
+  --color-accent-ink: #2f6046;
+  --color-accent-soft: #e1efe6;
+}
+[data-palette="muzi"] {
+  --color-paper: #f3f1f7;
+  --color-surface: #fdfcff;
+  --color-sunk: #ebe8f2;
+  --color-page: #fefdff;
+  --color-ink: #262233;
+  --color-mist: #595370;
+  --color-faint: #918ba6;
+  --color-line: #e0dcea;
+  --color-hover: #e6e2ef;
+  --color-accent: #6a4f9c;
+  --color-accent-ink: #533c7e;
+  --color-accent-soft: #ece6f6;
+}
+[data-palette="yanzhi"] {
+  --color-paper: #f7f0ef;
+  --color-surface: #fffbfa;
+  --color-sunk: #f0e7e5;
+  --color-page: #fffdfc;
+  --color-ink: #2e2222;
+  --color-mist: #685252;
+  --color-faint: #a18c8a;
+  --color-line: #ead9d6;
+  --color-hover: #efe2df;
+  --color-accent: #a34040;
+  --color-accent-ink: #842f2f;
+  --color-accent-soft: #f7e3e1;
+}
+
+/* ---------- 深色 ---------- */
+.dark {
+  color-scheme: dark;
+  --color-paper: #12161c;
+  --color-surface: #181d24;
+  --color-sunk: #0f1318;
+  --color-page: #1a2028;
+  --color-ink: #e4e8ee;
+  --color-mist: #a7b1bd;
+  --color-faint: #6f7b88;
+  --color-line: #29313b;
+  --color-hover: #222932;
+  --color-accent: #7fa9d6;
+  --color-accent-ink: #a5c4e6;
+  --color-accent-soft: #1d2c3d;
+  --color-accent-fg: #0f1720;
+  --color-danger: #f0857a;
+  --color-danger-soft: #3a1f1d;
+  --color-ok: #7cc79a;
+  --color-ok-soft: #1a2e22;
+  --color-warn: #e2b062;
+  --color-ins: #1d3a28;
+  --color-del: #43221f;
+  --shadow-pop: 0 12px 32px -12px rgb(0 0 0 / 0.6), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  --shadow-page: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+.dark[data-palette="xuanzhi"] {
+  --color-paper: #17140f;
+  --color-surface: #1e1a14;
+  --color-sunk: #13110d;
+  --color-page: #211c16;
+  --color-ink: #ece4d6;
+  --color-mist: #bcae98;
+  --color-faint: #857a69;
+  --color-line: #332c22;
+  --color-hover: #29231b;
+  --color-accent: #d4a373;
+  --color-accent-ink: #e5bf98;
+  --color-accent-soft: #33271a;
+}
+.dark[data-palette="zhuqing"] {
+  --color-paper: #111713;
+  --color-surface: #171e19;
+  --color-sunk: #0e1310;
+  --color-page: #19211c;
+  --color-ink: #e1ebe4;
+  --color-mist: #a3b5a9;
+  --color-faint: #6d8074;
+  --color-line: #27322b;
+  --color-hover: #202923;
+  --color-accent: #7cc39b;
+  --color-accent-ink: #a2d8b9;
+  --color-accent-soft: #1b3025;
+}
+.dark[data-palette="muzi"] {
+  --color-paper: #15131b;
+  --color-surface: #1b1823;
+  --color-sunk: #110f16;
+  --color-page: #1e1b27;
+  --color-ink: #e7e3f0;
+  --color-mist: #aea7c2;
+  --color-faint: #777090;
+  --color-line: #2d2939;
+  --color-hover: #25212f;
+  --color-accent: #b39ce6;
+  --color-accent-ink: #cbbcf0;
+  --color-accent-soft: #2a2240;
+}
+.dark[data-palette="yanzhi"] {
+  --color-paper: #181212;
+  --color-surface: #1f1818;
+  --color-sunk: #140f0f;
+  --color-page: #221a1a;
+  --color-ink: #efe3e2;
+  --color-mist: #c0a9a7;
+  --color-faint: #8a7472;
+  --color-line: #352a29;
+  --color-hover: #2a2120;
+  --color-accent: #e58c8c;
+  --color-accent-ink: #f0adad;
+  --color-accent-soft: #3a2222;
 }
 
 @layer base {
@@ -61,6 +230,7 @@
     color: var(--color-ink);
     font-family: var(--font-sans);
     text-wrap: pretty;
+    font-feature-settings: "palt" 0;
   }
   h1,
   h2,
@@ -71,6 +241,40 @@
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 26%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+    outline-offset: 2px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-faint) 45%, transparent) transparent;
+  }
+}
+
+/* 稿纸：正文编辑区与预览共用的排版 */
+.manuscript {
+  font-family: var(--editor-font);
+  font-size: var(--editor-size);
+  line-height: var(--editor-leading);
+  letter-spacing: 0.02em;
+  color: var(--color-ink);
+  font-kerning: none;
+  hanging-punctuation: allow-end;
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+.manuscript-col {
+  width: 100%;
+  max-width: var(--editor-width);
+  margin-inline: auto;
+}
+.manuscript-preview p {
+  text-indent: var(--editor-indent);
+  margin: 0 0 0.35em;
 }
 
 @keyframes enter {
@@ -83,13 +287,41 @@
     transform: none;
   }
 }
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
 
 .enter {
   animation: enter 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+.pop {
+  animation: pop 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stream-caret::after {
+  content: "▍";
+  margin-left: 1px;
+  color: var(--color-accent);
+  animation: caret 1s steps(1) infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .enter {
+  .enter,
+  .pop {
+    animation: none;
+  }
+  .stream-caret::after {
     animation: none;
   }
 }
