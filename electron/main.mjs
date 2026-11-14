@@ -5,7 +5,7 @@
  * window titled 蓝稿. Node on the end-user machine is the Node bundled inside
  * Electron; nothing else has to be installed.
  */
-import { app, BrowserWindow, dialog, Menu, shell } from "electron";
+import { app, BrowserWindow, dialog, Menu, nativeTheme, screen, shell } from "electron";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import path from "node:path";
@@ -94,13 +94,16 @@ async function waitUntilUp(url, child, log) {
 }
 
 async function openWindow(url) {
+  // v2：三栏布局（目录 / 正文 / 右侧面板）需要更宽的窗口；按屏幕可用区域取一个合适的大小。
+  const area = screen.getPrimaryDisplay().workAreaSize;
   win = new BrowserWindow({
-    width: 1280,
-    height: 840,
-    minWidth: 880,
+    width: Math.max(960, Math.min(1440, Math.round(area.width * 0.9))),
+    height: Math.max(640, Math.min(920, Math.round(area.height * 0.9))),
+    minWidth: 960,
     minHeight: 640,
     title: "蓝稿",
-    backgroundColor: "#f4f7fb",
+    // 与页面底色一致，深色系统下不闪白
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#12161c" : "#f3f5f8",
     autoHideMenuBar: true,
     icon: path.join(repoRoot, "electron", "icon.png"),
     webPreferences: {

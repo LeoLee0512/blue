@@ -131,7 +131,8 @@ function NeedBook({ children }: { children: React.ReactNode }) {
   );
 }
 
-function BookSide() {
+// v2：右侧面板「线索」页复用
+export function BookSide({ inPanel }: { inPanel?: boolean } = {}) {
   const desk = useDesk();
   const detail = desk.detail;
   const [personId, setPersonId] = useState("");
@@ -144,7 +145,7 @@ function BookSide() {
     .map((chapter) => ({ title: chapter.title, fact: chapterFact(chapter) }))
     .filter((item) => item.fact);
   return (
-    <aside className="w-full shrink-0 space-y-8 lg:w-72">
+    <aside className={inPanel ? "h-full space-y-6 overflow-y-auto p-4" : "w-full shrink-0 space-y-8 lg:w-72"}>
       {note ? <p className="font-serif text-sm leading-relaxed text-ink">{note}</p> : null}
       {detail.novel.soFar ? <p className="text-sm leading-relaxed text-faint">到这里为止 {detail.novel.soFar}</p> : null}
       {threads ? (
@@ -176,7 +177,7 @@ function BookSide() {
         {sides.loose ? <p className="mt-2 font-serif text-sm leading-relaxed text-mist">{sides.loose}</p> : null}
         {!sides.want && !sides.loose ? <p className="text-sm text-faint">还没评过。</p> : null}
       </div>
-      <div>
+      {inPanel ? null : <div>
         <div className="flex items-baseline justify-between">
           <p className="text-sm text-faint">人物</p>
           <button
@@ -207,7 +208,8 @@ function BookSide() {
         </div>
         {personId ? <PersonFold personId={personId} onGone={() => setPersonId("")} /> : null}
         {adding ? <PersonForm onDone={() => setAdding(false)} /> : null}
-      </div>
+      </div>}
+      {inPanel && !note && !threads && !facts.length ? <p className="text-sm leading-relaxed text-faint">这里会显示未收的线、不能改的事实和评书意见。可以让代理「评这一回」。</p> : null}
       {/* 2026-11-01 全免费：「这一页是送的」提示已下线。 */}
     </aside>
   );
@@ -314,7 +316,7 @@ function LibraryPane() {
   );
 }
 
-function CreateForm() {
+export function CreateForm() {
   const desk = useDesk();
   const [line, setLine] = useState("");
   const [title, setTitle] = useState("");
@@ -377,7 +379,7 @@ function CreateForm() {
   );
 }
 
-function EditForm() {
+export function EditForm() {
   const desk = useDesk();
   const novel = desk.detail?.novel;
   const [title, setTitle] = useState(novel?.title ?? "");

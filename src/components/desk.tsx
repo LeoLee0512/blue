@@ -1,5 +1,6 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, type MutableRefObject } from "react";
 import type { AccountSnapshot, NovelDetail, UsageDay, VoiceDocs } from "@/lib/novel/types";
+import type { ConfirmRequest } from "@/components/ui";
 
 export type PaneId =
   | "library"
@@ -18,7 +19,31 @@ export type PaneId =
   | "poetry"
   | "notes"
   | "share"
-  | "plan";
+  | "plan"
+  // v2
+  | "story"
+  | "data"
+  | "settings";
+
+/** 右侧面板 */
+export type SideTab = "cards" | "lore" | "assist" | "versions" | "threads" | "agent";
+
+/** 导出范围 */
+export type ExportScope = { kind: "chapter"; id: string } | { kind: "volume"; id: string | null } | { kind: "work" };
+
+/** 编辑器向外暴露的能力（AI 工具、人物卡插入用）。 */
+export type EditorBridge = {
+  chapterId: string;
+  /** 当前选区；没有选中时 start === end */
+  selection: () => { start: number; end: number; text: string; before: string; after: string };
+  /** 用 text 替换 [start, end)，并把光标放到新文字末尾 */
+  replace: (start: number, end: number, text: string) => void;
+  focus: () => void;
+  /** 立即保存（AI 替换之前、切换章节之前） */
+  flush: () => Promise<boolean>;
+  /** 当前正文（含未保存的修改） */
+  text: () => string;
+};
 
 export type Desk = {
   account: AccountSnapshot | null;
@@ -65,6 +90,20 @@ export type Desk = {
   review: () => Promise<void>;
   setStudio: (patch: { wild?: boolean; web?: boolean; thinking?: "low" | "mid" | "high" }) => Promise<void>;
   noteToday: (today: UsageDay) => void;
+  // v2
+  patchDetail: (fn: (detail: NovelDetail) => NovelDetail) => void;
+  patchAccount: (fn: (account: AccountSnapshot) => AccountSnapshot) => void;
+  note: (text: string) => void;
+  fail: (text: string) => void;
+  ask: (request: ConfirmRequest) => void;
+  side: SideTab | null;
+  setSide: (tab: SideTab | null) => void;
+  focus: boolean;
+  setFocus: (on: boolean) => void;
+  /** 打开导出对话框；传 novelId 时先切到那部作品 */
+  openExport: (scope: ExportScope, novelId?: string) => void;
+  editor: MutableRefObject<EditorBridge | null>;
+  openNovel: (id: string) => void;
 };
 
 const DeskContext = createContext<Desk | null>(null);

@@ -1,12 +1,12 @@
 import { CONTEXT_LIMIT } from "@/lib/novel/catalog";
-import { bookMark, countChars, todayKey } from "@/lib/novel/format";
+import { bookMark, todayKey } from "@/lib/novel/format";
 import { useDesk } from "@/components/desk";
 
 export function StudioBar() {
   const desk = useDesk();
   const settings = desk.account?.settings;
   const today = (desk.account?.usage ?? []).find((day) => day.day === todayKey());
-  const total = (desk.detail?.chapters ?? []).reduce((sum, chapter) => sum + countChars(chapter.body), 0);
+  const total = (desk.detail?.chapters ?? []).reduce((sum, chapter) => sum + (chapter.words || 0), 0);
   const mark = bookMark(desk.detail?.chapters.length ?? 0, desk.detail?.outline.length ?? 0, desk.detail?.novel.ledger ?? "");
   const used = settings?.contextUsed ?? 0;
   const ratio = used / CONTEXT_LIMIT;

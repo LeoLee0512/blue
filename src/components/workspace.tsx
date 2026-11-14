@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
 import {
   applyTemplate,
   bootstrap,
@@ -24,10 +23,12 @@ import {
   updateNovel,
 } from "@/lib/novel/api";
 import type { AccountSnapshot, NovelDetail, UsageDay } from "@/lib/novel/types";
-import { AgentPane } from "@/components/agent-pane";
-import { DeskProvider, type Desk, type PaneId } from "@/components/desk";
-import { Center, NAV, NavList, NovelList } from "@/components/panes";
-import { cn } from "@/lib/cn";
+import { DeskProvider, type Desk, type EditorBridge, type ExportScope, type PaneId, type SideTab } from "@/components/desk";
+import { NAV } from "@/components/panes";
+import { Confirm, type ConfirmRequest } from "@/components/ui";
+import { Shell } from "@/components/shell";
+import { toast } from "sonner";
+import { readingOrder } from "@/lib/write/tree";
 
 function blame(_error: unknown): string {
   return "没有完成";
@@ -51,13 +52,27 @@ function mergeToday(prev: AccountSnapshot | null, today: UsageDay, settings?: Pa
   };
 }
 
+const LAST_CHAPTER = "langao-last-chapter:";
+
+/** 打开作品时停在上次写的那一章；没有记录就从阅读顺序的第一章开始。 */
+function firstChapter(detail: NovelDetail | null): string {
+  if (!detail) return "";
+  try {
+    const last = window.localStorage.getItem(LAST_CHAPTER + detail.novel.id);
+    if (last && detail.chapters.some((c) => c.id === last)) return last;
+  } catch {
+    // 读不到就用第一章
+  }
+  return readingOrder(detail.volumes, detail.chapters)[0]?.id ?? "";
+}
+
 export function Workspace() {
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState("");
   const [account, setAccount] = useState<AccountSnapshot | null>(null);
   const [detail, setDetail] = useState<NovelDetail | null>(null);
   const [novelId, setNovelId] = useState("");
-  const [pane, setPane] = useState<PaneId>("library");
+  const [pane, setPaneState] = useState<PaneId>("library");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -66,6 +81,11 @@ export function Workspace() {
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [selectedChapterId, setSelectedChapterId] = useState("");
   const [creating, setCreating] = useState(false);
+  const [side, setSide] = useState<SideTab | null>("cards");
+  const [focus, setFocus] = useState(false);
+  const [exportReq, setExportReq] = useState<{ scope: ExportScope; novelId: string } | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const editor = useRef<EditorBridge | null>(null);
 
   useEffect(() => {
     let dead = false;
@@ -105,7 +125,7 @@ export function Workspace() {
           return;
         }
         setDetail(res.detail);
-        setSelectedChapterId(res.detail?.chapters[0]?.id ?? "");
+        setSelectedChapterId(firstChapter(res.detail));
         setSelectedNodeId(res.detail?.outline[0]?.id ?? "");
       })
       .catch((err: unknown) => {
@@ -126,7 +146,7 @@ export function Workspace() {
     setDetail(res.detail);
     const chapters = res.detail?.chapters ?? [];
     const nodes = res.detail?.outline ?? [];
-    setSelectedChapterId((current) => (chapters.some((chapter) => chapter.id === current) ? current : (chapters[0]?.id ?? "")));
+    setSelectedChapterId((current) => (chapters.some((chapter) => chapter.id === current) ? current : firstChapter(res.detail)));
     setSelectedNodeId((current) => (nodes.some((node) => node.id === current) ? current : (nodes[0]?.id ?? "")));
   }
 
@@ -143,15 +163,35 @@ export function Workspace() {
     setNovelId((current) => (res.account.novels.some((novel) => novel.id === current) ? current : (res.account.novels[0]?.id ?? "")));
   }
 
+  useEffect(() => {
+    if (!novelId || !selectedChapterId) return;
+    try {
+      window.localStorage.setItem(LAST_CHAPTER + novelId, selectedChapterId);
+    } catch {
+      // 记不住也没关系
+    }
+  }, [novelId, selectedChapterId]);
+
   const desk = useMemo<Desk>(() => {
     const refreshDetail = () => refreshDetailRef.current();
     const note = (text: string) => {
       setError("");
       setNotice(text);
+      toast.success(text, { id: "langao-note" });
     };
     const fail = (text: string) => {
       setNotice("");
       setError(text);
+      toast.error(text, { id: "langao-fail" });
+    };
+    // v2：「代理」不再是单独的一栏，而是右侧面板的一页
+    const setPane = (next: PaneId) => {
+      if (next === "agent") {
+        setSide("agent");
+        setPaneState((cur) => (["manuscript", "studio", "outline"].includes(cur) ? cur : "manuscript"));
+        return;
+      }
+      setPaneState(next);
     };
 
     return {
@@ -230,7 +270,7 @@ export function Workspace() {
           setAccount((prev) => (prev ? { ...prev, novels: [res.novel, ...prev.novels.filter((novel) => novel.id !== res.novel.id)] } : prev));
           setCreating(false);
           setNovelId(res.novel.id);
-          setPane("outline");
+          setPane("manuscript");
           note("作品已放上书桌");
         } catch (err) {
           fail(blame(err));
@@ -535,6 +575,29 @@ export function Workspace() {
         }
       },
       noteToday: (today) => setAccount((prev) => mergeToday(prev, today)),
+      patchDetail: (fn) => setDetail((prev) => (prev ? fn(prev) : prev)),
+      patchAccount: (fn) => setAccount((prev) => (prev ? fn(prev) : prev)),
+      note,
+      fail,
+      ask: (request) => setConfirm(request),
+      side,
+      setSide,
+      focus,
+      setFocus,
+      editor,
+      openExport: (scope, id) => {
+        const target = id ?? novelId;
+        if (target && target !== novelId) {
+          setCreating(false);
+          setNovelId(target);
+        }
+        setExportReq({ scope, novelId: target });
+      },
+      openNovel: (id: string) => {
+        setCreating(false);
+        if (id !== novelId) setNovelId(id);
+        setPaneState("manuscript");
+      },
     };
 
     // 2026-11-04 Sam（Mia §5）：技能/插件开关只走 saveToolset，不再把地址和模型一并写回。
@@ -564,14 +627,15 @@ export function Workspace() {
     selectedNodeId,
     selectedChapterId,
     creating,
+    side,
+    focus,
   ]);
 
   if (booting) {
     return (
-      <main className="min-h-dvh bg-paper">
-        <div className="h-0.5 bg-accent" />
-        <p className="px-6 py-5 font-serif text-2xl">蓝稿</p>
-        <p className="px-6 text-sm text-mist">正在铺开书桌</p>
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-paper">
+        <p className="font-serif text-3xl font-semibold tracking-widest text-ink">蓝稿</p>
+        <p className="text-sm text-faint">正在铺开书桌…</p>
       </main>
     );
   }
@@ -585,56 +649,10 @@ export function Workspace() {
     );
   }
 
-  const title = detail?.novel.title ?? "";
-
   return (
     <DeskProvider value={desk}>
-      <div className="flex h-dvh flex-col bg-paper">
-        <div className="h-0.5 shrink-0 bg-accent" />
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-3 sm:px-4">
-          <button type="button" className="font-serif text-xl" onClick={() => setPane("library")}>
-            蓝稿
-          </button>
-          {title ? <p className="min-w-0 flex-1 truncate font-serif text-base text-ink">{title}</p> : <span className="min-w-0 flex-1" />}
-          {/* 2026-11-01 全免费：顶栏套餐按钮（习作/一杯/长夜）已下线。 */}
-          {(account?.novels.length ?? 0) > 0 ? (
-            <button
-              type="button"
-              className="min-h-11 shrink-0 px-2 text-sm text-faint"
-              onClick={() => {
-                setPane("library");
-                window.dispatchEvent(new Event("langao-guide"));
-              }}
-            >
-              指引
-            </button>
-          ) : null}
-          <Link to="/about" className="min-h-11 shrink-0 px-2 text-sm leading-[2.75rem] text-faint">
-            关于
-          </Link>
-        </header>
-        {error || notice ? (
-          <p className={cn("shrink-0 border-b border-line px-4 py-2 text-sm", error ? "text-ink" : "text-mist")}>{error || notice}</p>
-        ) : null}
-        <div className="shrink-0 overflow-x-auto border-b border-line bg-surface px-2 py-2 lg:hidden">
-          <NavList />
-        </div>
-        <div className="grid min-h-0 flex-1 lg:grid-cols-12">
-          <aside className="hidden min-h-0 flex-col gap-4 overflow-y-auto border-r border-line bg-surface p-3 lg:col-span-3 lg:flex">
-            <NavList stacked />
-            <div className="h-px bg-line" />
-            <NovelList />
-          </aside>
-          <main className={cn("flex min-h-0 flex-col overflow-y-auto lg:col-span-5", pane === "agent" && "hidden lg:block")}>
-            <Center />
-          </main>
-          <aside className={cn("min-h-0 border-line lg:col-span-4 lg:flex lg:border-l", pane === "agent" ? "flex" : "hidden")}>
-            <div className="min-h-0 w-full">
-              <AgentPane />
-            </div>
-          </aside>
-        </div>
-      </div>
+      <Shell exportReq={exportReq && detail?.novel.id === exportReq.novelId ? exportReq.scope : null} closeExport={() => setExportReq(null)} />
+      <Confirm request={confirm} onClose={() => setConfirm(null)} />
     </DeskProvider>
   );
 }
