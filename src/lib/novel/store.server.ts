@@ -3,6 +3,7 @@ import type { Sql } from "@/lib/db";
 import { readPlan, WEB_SEARCH_ENABLED } from "./plan.server";
 import { SecretBoxError, compareAndSetStoredKey, isSealed, openSecret, sealSecret } from "./secret-box.server";
 import { chapterFact, todayKey } from "./format";
+import { countWords } from "@/lib/write/wordcount";
 import {
   DEFAULT_PLUGINS,
   DEFAULT_SKILLS,
@@ -37,6 +38,8 @@ type NovelRow = {
   so_far: string;
   ledger: string;
   commentary: string;
+  author?: string | null;
+  daily_goal?: number | null;
   updated_at: unknown;
 };
 
@@ -50,21 +53,29 @@ type OutlineRow = {
   status: string;
 };
 
-type ChapterRow = {
+export type ChapterRow = {
   id: string;
   node_id: string | null;
+  volume_id?: string | null;
   title: string;
   body: string;
   fact: string;
+  status?: string | null;
+  note?: string | null;
+  words?: number | null;
   sort_order: number;
   updated_at: unknown;
 };
 
-type CharacterRow = {
+export type CharacterRow = {
   id: string;
   name: string;
   role: string;
   bio: string;
+  aliases?: string | null;
+  appearance?: string | null;
+  personality?: string | null;
+  tags?: string | null;
   sort_order: number;
 };
 
@@ -101,7 +112,7 @@ export function clip(value: unknown, max: number): string {
     .slice(0, max);
 }
 
-function stamp(value: unknown): string {
+export function stamp(value: unknown): string {
   if (value instanceof Date) return value.toISOString();
   return typeof value === "string" ? value : "";
 }
@@ -117,6 +128,8 @@ function mapNovel(row: NovelRow): Novel {
     soFar: row.so_far ?? "",
     ledger: row.ledger ?? "",
     commentary: row.commentary ?? "",
+    author: row.author ?? "",
+    dailyGoal: Number(row.daily_goal) || 0,
     updatedAt: stamp(row.updated_at),
   };
 }
@@ -138,20 +151,33 @@ function mapNode(row: OutlineRow): OutlineNode {
   };
 }
 
-function mapChapter(row: ChapterRow): Chapter {
+export function mapChapter(row: ChapterRow): Chapter {
   return {
     id: row.id,
     nodeId: row.node_id,
+    volumeId: row.volume_id ?? null,
     title: row.title,
     body: row.body,
     fact: row.fact ?? "",
+    status: row.status === "done" ? "done" : "draft",
+    note: row.note ?? "",
+    words: Number(row.words) || 0,
     sortOrder: Number(row.sort_order) || 0,
     updatedAt: stamp(row.updated_at),
   };
 }
 
-function mapCharacter(row: CharacterRow): Character {
-  return { id: row.id, name: row.name, role: row.role, bio: row.bio };
+export function mapCharacter(row: CharacterRow): Character {
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role,
+    bio: row.bio,
+    aliases: row.aliases ?? "",
+    appearance: row.appearance ?? "",
+    personality: row.personality ?? "",
+    tags: row.tags ?? "",
+  };
 }
 
 function mapMessage(row: MessageRow): ChatMessage {
@@ -270,7 +296,7 @@ async function touchNovel(sql: Sql, userId: string, novelId: string) {
 export async function readAccount(sql: Sql, userId: string): Promise<AccountSnapshot> {
   await ensureAccount(sql, userId);
   const novels = await sql<NovelRow>`
-    select id, title, genre, logline, premise, style_notes, so_far, ledger, commentary, updated_at
+    select id, title, genre, logline, premise, style_notes, so_far, ledger, commentary, author, daily_goal, updated_at
     from novels where user_id = ${userId}
     order by updated_at desc
   `;
@@ -298,8 +324,10 @@ export async function readAccount(sql: Sql, userId: string): Promise<AccountSnap
       if (!(error instanceof SecretBoxError)) throw error;
     }
   }
+  const { readNovelStats } = await import("./workbench.server");
   return {
     novels: novels.map(mapNovel),
+    stats: await readNovelStats(sql, userId),
     settings: mapSettings(profile, userId),
     voice: await readVoice(sql, userId),
     sources: await listSources(sql, userId),
@@ -309,7 +337,7 @@ export async function readAccount(sql: Sql, userId: string): Promise<AccountSnap
 
 async function ownedNovel(sql: Sql, userId: string, novelId: string): Promise<Novel | null> {
   const rows = await sql<NovelRow>`
-    select id, title, genre, logline, premise, style_notes, so_far, ledger, commentary, updated_at
+    select id, title, genre, logline, premise, style_notes, so_far, ledger, commentary, author, daily_goal, updated_at
     from novels where id = ${novelId} and user_id = ${userId}
   `;
   return rows[0] ? mapNovel(rows[0]) : null;
@@ -324,12 +352,12 @@ export async function readDetail(sql: Sql, userId: string, novelId: string): Pro
     order by sort_order asc, title asc
   `;
   const chapters = await sql<ChapterRow>`
-    select id, node_id, title, body, fact, sort_order, updated_at
+    select id, node_id, volume_id, title, body, fact, status, note, words, sort_order, updated_at
     from chapters where novel_id = ${novelId} and user_id = ${userId}
     order by sort_order asc, updated_at asc
   `;
   const characters = await sql<CharacterRow>`
-    select id, name, role, bio, sort_order
+    select id, name, role, bio, aliases, appearance, personality, tags, sort_order
     from characters where novel_id = ${novelId} and user_id = ${userId}
     order by sort_order asc, name asc
   `;
@@ -339,12 +367,17 @@ export async function readDetail(sql: Sql, userId: string, novelId: string): Pro
     order by created_at asc
     limit 80
   `;
+  const { readVolumes, readLore, readNovelDays, backfillWords } = await import("./workbench.server");
+  const mapped = await backfillWords(sql, userId, chapters.map(mapChapter));
   return {
     novel,
     outline: outline.map(mapNode),
-    chapters: chapters.map(mapChapter),
+    chapters: mapped,
     characters: characters.map(mapCharacter),
     messages: messages.map(mapMessage),
+    volumes: await readVolumes(sql, userId, novelId),
+    lore: await readLore(sql, userId, novelId),
+    days: await readNovelDays(sql, userId, novelId),
   };
 }
 
@@ -366,7 +399,7 @@ export async function createNovel(
   const rows = await sql<NovelRow>`
     insert into novels (id, user_id, title, genre, logline)
     values (${id}, ${userId}, ${title}, ${genre}, ${clip(input.logline, 400)})
-    returning id, title, genre, logline, premise, style_notes, so_far, ledger, commentary, updated_at
+    returning id, title, genre, logline, premise, style_notes, so_far, ledger, commentary, author, daily_goal, updated_at
   `;
   return mapNovel(rows[0]);
 }
@@ -390,7 +423,7 @@ export async function updateNovel(
       ledger = ${clip(input.ledger ?? "", 8000)},
       updated_at = now()
     where id = ${input.id} and user_id = ${userId}
-    returning id, title, genre, logline, premise, style_notes, so_far, ledger, commentary, updated_at
+    returning id, title, genre, logline, premise, style_notes, so_far, ledger, commentary, author, daily_goal, updated_at
   `;
   return rows[0] ? mapNovel(rows[0]) : null;
 }
@@ -420,6 +453,10 @@ export async function deleteNovel(sql: Sql, userId: string, novelId: string): Pr
   await sql`delete from characters where novel_id = ${novelId} and user_id = ${userId}`;
   await sql`delete from chapters where novel_id = ${novelId} and user_id = ${userId}`;
   await sql`delete from outline_nodes where novel_id = ${novelId} and user_id = ${userId}`;
+  await sql`delete from chapter_versions where novel_id = ${novelId} and user_id = ${userId}`;
+  await sql`delete from volumes where novel_id = ${novelId} and user_id = ${userId}`;
+  await sql`delete from lore_entries where novel_id = ${novelId} and user_id = ${userId}`;
+  await sql`delete from novel_days where novel_id = ${novelId} and user_id = ${userId}`;
   await sql`delete from novels where id = ${novelId} and user_id = ${userId}`;
   return true;
 }
@@ -526,12 +563,15 @@ export async function applyEmptyActs(sql: Sql, userId: string, novelId: string, 
 export async function saveChapter(
   sql: Sql,
   userId: string,
-  input: { novelId: string; id?: string; title: string; body: string; nodeId?: string | null },
+  input: { novelId: string; id?: string; title: string; body: string; nodeId?: string | null; volumeId?: string | null },
 ): Promise<Chapter | null> {
   const novel = await ownedNovel(sql, userId, input.novelId);
   if (!novel) return null;
+  const { noteNovelWords, snapshotIfDue, appendOrder } = await import("./workbench.server");
   const title = clip(input.title, 80) || "未命名章节";
-  const body = clip(input.body, 20000);
+  // v2：章节正文上限从 2 万字放宽到 30 万字符，长章也能完整保存。
+  const body = clip(input.body, 300000);
+  const words = countWords(body);
   let nodeId = input.nodeId ? clip(input.nodeId, 40) : "";
   if (nodeId) {
     const node = await sql<{ id: string }>`
@@ -541,33 +581,46 @@ export async function saveChapter(
     if (!node[0]) nodeId = "";
   }
   if (input.id) {
-    const previous = await sql<{ body: string }>`
-      select body from chapters where id = ${input.id} and novel_id = ${input.novelId} and user_id = ${userId}
+    const previous = await sql<{ body: string; node_id: string | null }>`
+      select body, node_id from chapters where id = ${input.id} and novel_id = ${input.novelId} and user_id = ${userId}
     `;
+    if (!previous[0]) return null;
+    // v2：调用方没传 nodeId 时保留原来的大纲关联，不再被清空。
+    const keepNode = input.nodeId === undefined ? previous[0].node_id : nodeId || null;
     const rows = await sql<ChapterRow>`
-      update chapters set title = ${title}, body = ${body}, node_id = ${nodeId || null}, updated_at = now()
+      update chapters set title = ${title}, body = ${body}, words = ${words}, node_id = ${keepNode}, updated_at = now()
       where id = ${input.id} and novel_id = ${input.novelId} and user_id = ${userId}
-      returning id, node_id, title, body, fact, sort_order, updated_at
+      returning id, node_id, volume_id, title, body, fact, status, note, words, sort_order, updated_at
     `;
     if (!rows[0]) return null;
-    const grown = Math.max(0, body.length - (previous[0]?.body.length ?? 0));
-    if (grown) await noteUsage(sql, userId, { userChars: grown });
+    const before = previous[0].body ?? "";
+    const grown = Math.max(0, words - countWords(before));
+    if (grown) {
+      await noteUsage(sql, userId, { userChars: grown });
+      await noteNovelWords(sql, userId, input.novelId, grown);
+    }
+    await snapshotIfDue(sql, userId, input.novelId, input.id, title, body);
     if (body.trim()) await rememberProgress(sql, userId, input.novelId, novel.soFar, title, body);
     else await touchNovel(sql, userId, input.novelId);
     return mapChapter(rows[0]);
   }
-  const orderRows = await sql<{ next: number }>`
-    select coalesce(max(sort_order), 0) + 1 as next
-    from chapters where novel_id = ${input.novelId} and user_id = ${userId}
-  `;
+  let volumeId: string | null = input.volumeId ? clip(input.volumeId, 40) : null;
+  if (volumeId) {
+    const vol = await sql<{ id: string }>`select id from volumes where id = ${volumeId} and novel_id = ${input.novelId} and user_id = ${userId}`;
+    if (!vol[0]) volumeId = null;
+  }
+  const order = await appendOrder(sql, userId, input.novelId, volumeId);
   const id = nid("c");
   const rows = await sql<ChapterRow>`
-    insert into chapters (id, novel_id, user_id, node_id, title, body, sort_order)
-    values (${id}, ${input.novelId}, ${userId}, ${nodeId || null}, ${title}, ${body}, ${Number(orderRows[0]?.next) || 1})
-    returning id, node_id, title, body, fact, sort_order, updated_at
+    insert into chapters (id, novel_id, user_id, node_id, volume_id, title, body, words, sort_order)
+    values (${id}, ${input.novelId}, ${userId}, ${nodeId || null}, ${volumeId}, ${title}, ${body}, ${words}, ${order})
+    returning id, node_id, volume_id, title, body, fact, status, note, words, sort_order, updated_at
   `;
   await touchNovel(sql, userId, input.novelId);
-  if (body.length) await noteUsage(sql, userId, { userChars: body.length });
+  if (words) {
+    await noteUsage(sql, userId, { userChars: words });
+    await noteNovelWords(sql, userId, input.novelId, words);
+  }
   if (body.trim()) await rememberProgress(sql, userId, input.novelId, novel.soFar, title, body);
   return mapChapter(rows[0]);
 }
@@ -578,6 +631,7 @@ export async function deleteChapter(sql: Sql, userId: string, novelId: string, c
     returning id
   `;
   if (!rows[0]) return false;
+  await sql`delete from chapter_versions where chapter_id = ${chapterId} and user_id = ${userId}`;
   await touchNovel(sql, userId, novelId);
   return true;
 }
@@ -597,14 +651,14 @@ export async function saveCharacter(
     const rows = await sql<CharacterRow>`
       update characters set name = ${name}, role = ${role}, bio = ${bio}
       where id = ${input.id} and novel_id = ${input.novelId} and user_id = ${userId}
-      returning id, name, role, bio, sort_order
+      returning id, name, role, bio, aliases, appearance, personality, tags, sort_order
     `;
     if (!rows[0]) return null;
     await touchNovel(sql, userId, input.novelId);
     return mapCharacter(rows[0]);
   }
   const same = await sql<CharacterRow>`
-    select id, name, role, bio, sort_order from characters
+    select id, name, role, bio, aliases, appearance, personality, tags, sort_order from characters
     where novel_id = ${input.novelId} and user_id = ${userId} and name = ${name}
     limit 1
   `;
@@ -612,7 +666,7 @@ export async function saveCharacter(
     const rows = await sql<CharacterRow>`
       update characters set role = ${role}, bio = ${bio}
       where id = ${same[0].id} and user_id = ${userId}
-      returning id, name, role, bio, sort_order
+      returning id, name, role, bio, aliases, appearance, personality, tags, sort_order
     `;
     await touchNovel(sql, userId, input.novelId);
     return mapCharacter(rows[0]);
@@ -623,9 +677,9 @@ export async function saveCharacter(
   `;
   const id = nid("p");
   const rows = await sql<CharacterRow>`
-    insert into characters (id, novel_id, user_id, name, role, bio, sort_order)
+    insert into characters (id, novel_id, user_id, name, role, bio, aliases, appearance, personality, tags, sort_order)
     values (${id}, ${input.novelId}, ${userId}, ${name}, ${role}, ${bio}, ${Number(orderRows[0]?.next) || 1})
-    returning id, name, role, bio, sort_order
+    returning id, name, role, bio, aliases, appearance, personality, tags, sort_order
   `;
   await touchNovel(sql, userId, input.novelId);
   return mapCharacter(rows[0]);
@@ -735,8 +789,10 @@ export async function saveSettings(
 }
 
 export class CodedError extends Error {
-  constructor(public code: string, message: string) {
+  code: string;
+  constructor(code: string, message: string) {
     super(message);
+    this.code = code;
   }
 }
 
@@ -898,19 +954,21 @@ export async function agentWriteChapter(
     limit 1
   `;
   const fact = existing[0]?.fact?.trim() || clip(input.fact || chapterFact({ body }), 160);
+  const { createVersion, appendOrder, lastVolumeId } = await import("./workbench.server");
+  const words = countWords(body);
   if (existing[0]) {
+    // v2：代理覆盖整章之前先存一版，随时能在「版本」里找回。
+    await createVersion(sql, userId, novelId, existing[0].id, "ai", "代理改写前");
     await sql`
-      update chapters set body = ${body}, fact = ${fact}, updated_at = now()
+      update chapters set body = ${body}, fact = ${fact}, words = ${words}, updated_at = now()
       where id = ${existing[0].id} and user_id = ${userId}
     `;
   } else {
-    const orderRows = await sql<{ next: number }>`
-      select coalesce(max(sort_order), 0) + 1 as next
-      from chapters where novel_id = ${novelId} and user_id = ${userId}
-    `;
+    const volumeId = await lastVolumeId(sql, userId, novelId);
+    const order = await appendOrder(sql, userId, novelId, volumeId);
     await sql`
-      insert into chapters (id, novel_id, user_id, title, body, fact, sort_order)
-      values (${nid("c")}, ${novelId}, ${userId}, ${title}, ${body}, ${fact}, ${Number(orderRows[0]?.next) || 1})
+      insert into chapters (id, novel_id, user_id, volume_id, title, body, fact, words, sort_order)
+      values (${nid("c")}, ${novelId}, ${userId}, ${volumeId}, ${title}, ${body}, ${fact}, ${words}, ${order})
     `;
   }
   if (input.summary) {

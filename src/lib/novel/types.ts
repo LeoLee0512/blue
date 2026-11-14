@@ -10,8 +10,46 @@ export type Novel = {
   soFar: string;
   ledger: string;
   commentary: string;
+  /** v2：署名（导出时用） */
+  author: string;
+  /** v2：这部作品的每日目标字数，0 表示不设 */
+  dailyGoal: number;
   updatedAt: string;
 };
+
+export type Volume = {
+  id: string;
+  title: string;
+  summary: string;
+  sortOrder: number;
+};
+
+export type LoreKind = "place" | "item" | "faction" | "concept" | "event" | "other";
+
+export type LoreEntry = {
+  id: string;
+  kind: LoreKind;
+  name: string;
+  summary: string;
+  body: string;
+  tags: string;
+  sortOrder: number;
+  updatedAt: string;
+};
+
+export type ChapterVersionMeta = {
+  id: string;
+  chapterId: string;
+  kind: "auto" | "manual" | "restore" | "ai";
+  label: string;
+  title: string;
+  words: number;
+  createdAt: string;
+};
+
+export type ChapterVersion = ChapterVersionMeta & { body: string };
+
+export type NovelDay = { day: string; words: number };
 
 export type OutlineNode = {
   id: string;
@@ -26,9 +64,16 @@ export type OutlineNode = {
 export type Chapter = {
   id: string;
   nodeId: string | null;
+  /** v2：所属卷，null 表示「未分卷」 */
+  volumeId: string | null;
   title: string;
   body: string;
   fact: string;
+  /** v2：draft | done */
+  status: string;
+  /** v2：章节备注 */
+  note: string;
+  words: number;
   sortOrder: number;
   updatedAt: string;
 };
@@ -38,6 +83,11 @@ export type Character = {
   name: string;
   role: string;
   bio: string;
+  /** v2：别名，逗号或顿号分隔 */
+  aliases: string;
+  appearance: string;
+  personality: string;
+  tags: string;
 };
 
 export type ChatMessage = {
@@ -79,6 +129,10 @@ export type NovelDetail = {
   chapters: Chapter[];
   characters: Character[];
   messages: ChatMessage[];
+  /** v2 */
+  volumes: Volume[];
+  lore: LoreEntry[];
+  days: NovelDay[];
 };
 
 export type VoiceDocs = {
@@ -111,8 +165,12 @@ export type SharedLeaf = {
   createdAt: string;
 };
 
+export type NovelStat = { novelId: string; chapters: number; words: number };
+
 export type AccountSnapshot = {
   novels: Novel[];
+  /** v2：每部作品的章节数和总字数（书架用） */
+  stats: NovelStat[];
   // 2026-11-01 全免费：不再返回 wallet / ledger（墨点流水）/ plan。
   settings: Settings;
   voice: VoiceDocs;

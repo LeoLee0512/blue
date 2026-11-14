@@ -110,12 +110,12 @@ export function validatePack(raw: unknown): PackCheck {
       out[table] = [];
       continue;
     }
-    if (!Array.isArray(rows)) return { ok: false, error: `备份文件里的 ${table} 不是列表。` };
+    if (!Array.isArray(rows)) return { ok: false, error: "备份文件的结构不对。" };
     out[table] = rows.filter((row) => row && typeof row === "object" && !Array.isArray(row)).map((row) => pickColumns(table, row as Record<string, unknown>));
   }
   const ids = (rows: PackRow[]) => rows.every((row) => typeof row.id === "string" && row.id.length > 0 && row.id.length <= 80);
   for (const table of ["novels", "volumes", "chapters", "chapter_versions", "characters", "lore_entries", "outline_nodes", "messages", "pieces", "source_texts"] as const) {
-    if (!ids(out[table])) return { ok: false, error: `备份文件里的 ${table} 有缺少编号的记录。` };
+    if (!ids(out[table])) return { ok: false, error: "备份文件里有缺少编号的记录。" };
   }
   if (!out.novels.every((row) => typeof row.title === "string")) return { ok: false, error: "备份文件里有缺少书名的作品。" };
   const novelIds = new Set(out.novels.map((row) => String(row.id)));

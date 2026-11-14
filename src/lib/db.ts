@@ -111,6 +111,24 @@ async function createPgliteSql(): Promise<Sql> {
   });
 }
 
+/**
+ * Run `fn` inside one database transaction. Everything `fn` does through the
+ * `Sql` it is handed commits together or not at all.
+ */
+export async function withTransaction<T>(fn: (sql: Sql) => Promise<T>): Promise<T> {
+  await getSql();
+  const pg = await globalRef.__pgliteInstance__;
+  if (!pg) throw new Error("[db] database is not open");
+  return pg.transaction(async (tx) =>
+    fn(
+      toSql(async <R>(text: string, params: unknown[]) => {
+        const result = await tx.query<R>(text, params);
+        return result.rows;
+      }),
+    ),
+  );
+}
+
 let sqlPromise: Promise<Sql> | null = null;
 
 async function createSql(): Promise<Sql> {
