@@ -570,7 +570,9 @@ export async function saveChapter(
   const { noteNovelWords, snapshotIfDue, appendOrder } = await import("./workbench.server");
   const title = clip(input.title, 80) || "未命名章节";
   // v2：章节正文上限从 2 万字放宽到 30 万字符，长章也能完整保存。
-  const body = clip(input.body, 300000);
+  // 正文原样保存（不去首尾空白）：段首的全角空格、末尾的换行都是作者打的，
+  // 去掉会让编辑器里的光标跳动。只去掉 NUL 字符并限制长度。
+  const body = String(input.body ?? "").split(String.fromCharCode(0)).join("").slice(0, 300000);
   const words = countWords(body);
   let nodeId = input.nodeId ? clip(input.nodeId, 40) : "";
   if (nodeId) {

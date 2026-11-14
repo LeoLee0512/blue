@@ -114,6 +114,17 @@ describe("正文、字数与版本", () => {
   });
 });
 
+describe("正文原样保存", () => {
+  it("段首全角空格和末尾换行不会被去掉（否则编辑器光标会跳）", async () => {
+    const novel = await newNovel();
+    const ch = await wb.createChapterIn(sql as never, U, novel.id, null, "");
+    const body = "\u3000\u3000雨下了一夜。\n\u3000\u3000";
+    const saved = await store.saveChapter(sql as never, U, { novelId: novel.id, id: ch.id, title: "开端", body });
+    assert.equal(saved?.body, body);
+    assert.equal(saved?.words, 5);
+  });
+});
+
 describe("人物卡与设定库", () => {
   it("保存完整人物卡和设定", async () => {
     const novel = await newNovel();
