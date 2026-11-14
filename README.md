@@ -6,6 +6,22 @@ Copyright (c) 2026 Leo Lee
 
 蓝稿是单机中文写作软件。打开窗口就是书桌，不需要注册或登录。作品、设置和模型密钥都保存在你自己的电脑上。蓝稿本身不提供模型，你填写自己的密钥，调用费用由对应的模型服务商收取。
 
+## 功能一览（第二版）
+
+![书桌（浅色）](screenshots/02-写作-浅色.png)
+
+- **书桌布局**：左侧活动栏 + 目录，中间稿纸，右侧可收起的资料面板；窗口窄时右侧面板浮在正文上方。
+- **外观**：浅色 / 深色 / 跟随系统；青花、宣纸、竹青、暮紫、胭脂五种配色；正文可选宋体（随软件附带）、黑体、楷体、仿宋，字号、行距、版心宽度可调，段首自动空两格，打字机模式。设置只保存在这台电脑上。
+- **作品 → 卷 → 章节**：新建、重命名（双击）、删除（二次确认；删卷时可选保留章节）、拖动排序（章节可跨卷拖动，卷也能拖动），顺序保存在数据库里。
+- **编辑器**：停笔约 1 秒自动保存，顶部显示「未保存 / 保存中 / 已保存」，`Ctrl+S` 立即保存；专注模式（`Esc` 退出）。
+- **字数统计**：按中文习惯计数（汉字、假名、韩文每字算 1，英文单词、连续数字各算 1，标点不计）。状态栏显示本章、选中、全书、今日字数和每日目标进度。
+- **版本历史**：写作时每 10 分钟或改动较大时自动留一版，也可以手动「存一版」；AI 替换、恢复版本之前都会自动留底。可逐字对比当前正文，一键恢复。
+- **人物卡与设定库**：每部作品单独一套。人物卡有别名、身份、外貌、性格、档案、标签；设定分地点、物品、势力、概念、事件、其他。可搜索，写作时输入 `@` 或点「插入」即可把名字放进正文。
+- **AI 写作工具**：续写、润色、扩写、缩写、改写（多种风格）、大纲、自由指令。选中文字会出现浮动工具条，结果逐字流出，可以替换原文、插入或复制，替换后 `Ctrl+Z` 能撤回。使用你在「模型连接」里选的服务商和密钥，只发往白名单里的官方地址；会参考作品的故事核、文风和与选段相关的人物设定。
+- **导出**：本章 / 本卷 / 整部作品，导出为 Word（.docx）、EPUB、TXT、Markdown。文件在本机生成。
+- **完整备份**：「数据与备份」里一键导出全部数据为一个 `.langao.json` 文件（作品、卷章、版本、人物、设定、诗歌手记、文风档案）。**不包含模型密钥**。恢复时可以「作为副本导入」，或「覆盖现有数据」（需要输入「覆盖」确认，覆盖前会把现有数据另存为数据目录下 `restore-points/` 里的恢复点文件）。
+- 原有的大纲、诗歌、手记、日历、技能、插件、代理对话都还在：代理和「线索」（未收的线、评书）在右侧面板里。
+
 ## 别人可以怎么用
 
 ### 安装 Windows 版
@@ -61,7 +77,7 @@ npm run desktop
 ### 第一次使用
 
 1. 打开蓝稿，直接进入书桌。
-2. 打开左侧「模型连接」。
+2. 在书架上「开一部新书」，或者先打开左侧活动栏里的「模型连接」。
 3. 选择一家服务商，在下拉里选模型，填入你自己的 API 密钥，保存。火山方舟只列出固定的模型 ID，不能手写别的地址。
 4. 密钥会加密后写到本机。蓝稿不提供默认模型，也不代收模型费用。
 
@@ -94,6 +110,9 @@ npm run desktop
 
 - `pglite/`：作品、大纲、正文、设置（嵌入式 Postgres）
 - `install-secret`：这一次安装生成的加密密钥，用来解开模型 API 密钥
+- `restore-points/`：用备份「覆盖」之前自动留下的恢复点文件（可以用「从文件恢复」导回）
+
+最省事的备份方式是软件里的「数据与备份 → 导出完整数据」，得到一个 `.langao.json` 文件，换电脑后用「从文件恢复」导入；这个文件不含模型密钥，恢复后重新填写即可。也可以按下面的方法复制整个数据文件夹：
 
 同一目录里还有窗口自己的缓存。备份时退出蓝稿，复制整个文件夹。恢复时放回原处。`pglite` 和 `install-secret` 必须一起在。只有数据库、没有 `install-secret` 时，作品还在，但已经保存的模型密钥解不开。不要把 `install-secret` 提交到仓库或发给别人。
 
@@ -140,8 +159,16 @@ npm run db:migrate   # 把 migrations/*.sql 应用到 LANGAO_DATA_DIR，默认�
 
 数据库迁移在应用启动时也会自动执行。
 
+想要一份示例数据来试界面或截图：
+
+```bash
+export LANGAO_DATA_DIR=$PWD/.data/demo
+npm run db:migrate
+node --experimental-strip-types --import ./scripts/ts-alias-hooks.mjs scripts/demo-seed.ts
+```
+
 ## English
 
 Langao is an open-source, MIT-licensed desktop writing app. Leo Lee is the lead; it was made together with Grok Bot. Copyright (c) 2026 Leo Lee.
 
-It is single-user and offline: no account, no sign-in. Works, settings, and model API keys stay on the local disk (`%APPDATA%\蓝稿` on Windows). Keys are encrypted with a per-install secret. Build a Windows installer with `npm run dist:win` (set `ELECTRON_MIRROR` and `ELECTRON_BUILDER_BINARIES_MIRROR` to the npmmirror URLs above when downloading Electron from mainland China). Node.js 22.12 or newer, including Node.js 24, is supported. GitHub Releases will host the `.exe` files later; this repository does not publish them by itself. The MIT license lets you use, modify, and redistribute the software if you keep the copyright and permission notices. Issues and pull requests are welcome.
+It is single-user and offline: no account, no sign-in. Works, settings, and model API keys stay on the local disk (`%APPDATA%\蓝稿` on Windows). Keys are encrypted with a per-install secret. Version 2 adds a three-pane writing desk (volume/chapter tree with drag-and-drop, autosaving editor with Chinese word counts and focus mode, version history with diff and restore, character cards and a worldbuilding library with @-mentions, streaming AI writing tools, light/dark themes with five palettes), export to DOCX/EPUB/TXT/Markdown, and a one-click full data export/restore that never includes API keys. Build a Windows installer with `npm run dist:win` (set `ELECTRON_MIRROR` and `ELECTRON_BUILDER_BINARIES_MIRROR` to the npmmirror URLs above when downloading Electron from mainland China). Node.js 22.12 or newer, including Node.js 24, is supported. GitHub Releases will host the `.exe` files later; this repository does not publish them by itself. The MIT license lets you use, modify, and redistribute the software if you keep the copyright and permission notices. Issues and pull requests are welcome.

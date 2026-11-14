@@ -5,18 +5,23 @@ export const Route = createFileRoute("/about")({ component: About });
 
 function About() {
   return (
-    <main className="min-h-dvh bg-paper">
-      <div className="h-0.5 bg-accent" />
-      <div className="mx-auto max-w-3xl space-y-8 px-4 py-8 sm:px-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h1 className="font-serif text-3xl">关于蓝稿</h1>
-          <Link to="/" className="text-sm text-mist underline-offset-4 hover:underline">
+    <main className="min-h-dvh bg-paper text-ink">
+      <div className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex size-11 items-center justify-center rounded-2xl bg-accent font-serif text-xl font-semibold text-accent-fg shadow-sm">蓝</span>
+            <div>
+              <h1 className="font-serif text-2xl font-semibold tracking-wide">关于蓝稿</h1>
+              <p className="text-[13px] text-faint">免费的中文写作软件 · 第二版</p>
+            </div>
+          </div>
+          <Link to="/" className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-sm text-ink hover:bg-hover">
             返回书桌
           </Link>
         </div>
 
-        <section className="space-y-2 text-sm leading-relaxed">
-          <h2 className="font-serif text-xl">主导人与制作说明</h2>
+        <section className="space-y-2 rounded-2xl border border-line bg-surface p-5 text-sm leading-relaxed">
+          <h2 className="font-serif text-lg font-semibold">主导人与制作说明</h2>
           <p>主导人：Leo Lee</p>
           <p>本软件由主导人使用 Grok Bot 合作制作。</p>
           <p className="text-mist">
@@ -24,8 +29,8 @@ function About() {
           </p>
         </section>
 
-        <section className="space-y-2 text-sm leading-relaxed">
-          <h2 className="font-serif text-xl">产品简介</h2>
+        <section className="space-y-2 rounded-2xl border border-line bg-surface p-5 text-sm leading-relaxed">
+          <h2 className="font-serif text-lg font-semibold">产品简介</h2>
           <p>
             蓝稿是一款在你自己的电脑上运行的中文写作工具。蓝稿本身不提供模型，也没有默认模型。你需要在「模型连接」里选择名单中的服务商，并填入你自己的密钥；模型调用费用由该服务商按用量向你收取。
           </p>
@@ -38,8 +43,23 @@ function About() {
           </p>
         </section>
 
-        <section className="space-y-3 text-sm leading-relaxed">
-          <h2 className="font-serif text-xl">模型服务商备案信息</h2>
+        <section className="space-y-2 rounded-2xl border border-line bg-surface p-5 text-sm leading-relaxed">
+          <h2 className="font-serif text-lg font-semibold">这一版有什么</h2>
+          <ul className="grid gap-x-6 gap-y-1.5 text-mist sm:grid-cols-2">
+            <li>作品 → 卷 → 章节目录，拖动排序</li>
+            <li>稿纸编辑器：自动保存、专注模式、打字机模式</li>
+            <li>中文字数统计：本章、全书、今日与每日目标</li>
+            <li>版本历史：自动快照、逐字对比、一键恢复</li>
+            <li>人物卡与设定库，写作时用 @ 插入</li>
+            <li>AI 续写、润色、扩写、缩写、改写、大纲</li>
+            <li>导出 Word、EPUB、TXT、Markdown</li>
+            <li>一键完整备份与恢复（不含密钥）</li>
+            <li>浅色 / 深色与五种配色，可调字体字号行距</li>
+          </ul>
+        </section>
+
+        <section className="space-y-3 rounded-2xl border border-line bg-surface p-5 text-sm leading-relaxed">
+          <h2 className="font-serif text-lg font-semibold">模型服务商备案信息</h2>
           <p className="text-mist">
             蓝稿自己不提供模型。你在「模型连接」里选择的服务商由其自行提供模型服务。下表列出蓝稿目前支持的服务商，以及它们在国家网信办公布的备案名单中的备案名称和备案号。核对日期见表。
           </p>
@@ -75,15 +95,15 @@ function About() {
           </p>
         </section>
 
-        <section className="space-y-2 text-sm leading-relaxed">
-          <h2 className="font-serif text-xl">版权与开源</h2>
+        <section className="space-y-2 rounded-2xl border border-line bg-surface p-5 text-sm leading-relaxed">
+          <h2 className="font-serif text-lg font-semibold">版权与开源</h2>
           <p>Copyright (c) 2026 Leo Lee</p>
           <p className="text-mist">
             许可证：MIT。你可以在保留上述版权声明和许可声明的前提下使用、修改和再分发本软件。许可证全文见仓库中的 LICENSE。
           </p>
         </section>
 
-        <footer className="space-y-1 border-t border-line pt-4 text-xs leading-relaxed text-faint">
+        <footer className="space-y-1 pt-2 text-xs leading-relaxed text-faint">
           <p>
             <Link to="/" className="underline-offset-4 hover:underline">
               返回书桌
