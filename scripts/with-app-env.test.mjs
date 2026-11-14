@@ -11,6 +11,7 @@ import {
   parseAppEnv,
   projectRoot,
   readAppEnv,
+  resolveCommand,
 } from "./with-app-env.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -136,4 +137,30 @@ test("the CLI still runs when invoked through a symlinked path", async () => {
   ], { env: withoutAuthFlag() });
   assert.equal(stdout, String(readAppEnv(projectRoot()).VITE_AUTH_ENABLED));
   assert.notEqual(stdout, "false");
+});
+
+test("vite runs through this node, not the .cmd shim (Windows build fix)", () => {
+  const run = resolveCommand("vite", ["build"], {
+    platform: "win32",
+    root: "C:\\repo",
+    execPath: "C:\\node\\node.exe",
+    exists: () => true,
+  });
+  assert.equal(run.file, "C:\\node\\node.exe");
+  assert.equal(run.shell, false);
+  assert.match(run.args[0], /node_modules[\\/]vite[\\/]bin[\\/]vite\.js$/);
+  assert.deepEqual(run.args.slice(1), ["build"]);
+});
+
+test("unknown commands use the shell on Windows and spawn directly elsewhere", () => {
+  const win = resolveCommand("tsc", ["--noEmit"], { platform: "win32", exists: () => false });
+  assert.deepEqual(win, { file: "tsc", args: ["--noEmit"], shell: true });
+  const linux = resolveCommand("tsc", ["--noEmit"], { platform: "linux", exists: () => false });
+  assert.deepEqual(linux, { file: "tsc", args: ["--noEmit"], shell: false });
+});
+
+test("the real vite entry exists in this checkout", () => {
+  const run = resolveCommand("vite", ["--version"]);
+  assert.equal(run.file, process.execPath);
+  assert.equal(run.shell, false);
 });

@@ -8,7 +8,7 @@
  * entry always wins.
  */
 import { spawn } from "node:child_process";
-import { readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { constants as osConstants } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -92,6 +92,45 @@ export function isMainModule(moduleUrl) {
   }
 }
 
+/**
+ * Node-based CLIs that npm exposes as `node_modules/.bin/<name>` shims. On
+ * Windows those shims are `.cmd` files, which `spawn()` cannot start without a
+ * shell (`spawn vite ENOENT`). Running the package's JS entry with this very
+ * Node (`process.execPath`) works the same on every platform and needs no shell.
+ */
+export const NODE_BINS = {
+  vite: "vite/bin/vite.js",
+  electron: "electron/cli.js",
+  "electron-builder": "electron-builder/cli.js",
+};
+
+/**
+ * How to start `command args…` without depending on PATH shims.
+ *
+ * - A known Node CLI (see NODE_BINS) found under `<root>/node_modules` runs as
+ *   `process.execPath <entry> args…`.
+ * - Anything else on Windows goes through the shell so `.cmd`/`.bat` resolve.
+ * - Elsewhere the command is spawned directly, as before.
+ *
+ * @param {string} command
+ * @param {string[]} args
+ * @param {{ platform?: string, root?: string, execPath?: string, exists?: (p: string) => boolean }} [opts]
+ * @returns {{ file: string, args: string[], shell: boolean }}
+ */
+export function resolveCommand(command, args, opts = {}) {
+  const platform = opts.platform ?? process.platform;
+  const root = opts.root ?? projectRoot();
+  const execPath = opts.execPath ?? process.execPath;
+  const exists = opts.exists ?? existsSync;
+  const rel = Object.prototype.hasOwnProperty.call(NODE_BINS, command) ? NODE_BINS[command] : "";
+  if (rel) {
+    const entry = join(root, "node_modules", ...rel.split("/"));
+    if (exists(entry)) return { file: execPath, args: [entry, ...args], shell: false };
+  }
+  if (platform === "win32") return { file: command, args, shell: true };
+  return { file: command, args, shell: false };
+}
+
 function main(argv) {
   const [command, ...args] = argv;
   if (!command) {
@@ -102,7 +141,8 @@ function main(argv) {
   if (!String(env.LANGAO_DATA_DIR ?? "").trim()) {
     env.LANGAO_DATA_DIR = join(projectRoot(), ".data");
   }
-  const child = spawn(command, args, { stdio: "inherit", env });
+  const run = resolveCommand(command, args);
+  const child = spawn(run.file, run.args, { stdio: "inherit", env, shell: run.shell, windowsHide: true });
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     process.on(signal, () => child.kill(signal));
