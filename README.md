@@ -39,7 +39,7 @@ Copyright (c) 2026 Leo Lee
 
 <https://github.com/LeoLee0512/blue/releases>
 
-目前还没有发布安装包。在维护者发布之前，请按下一节从源码构建。发布之后，下载 `langao-<版本>-setup.exe`（安装版）或 `langao-<版本>-portable.exe`（便携版），双击运行。安装版可以改安装目录；便携版解出后直接运行 `langao.exe`。窗口标题是「蓝稿」。不需要另外安装 Node.js，也不需要打开浏览器。
+当前第二版版本号为 **0.2.0**。在 Releases 中选择对应版本，下载 `langao-<版本>-setup.exe`（安装版）或 `langao-<版本>-portable.exe`（便携版），双击运行。安装版可以改安装目录；便携版解出后直接运行 `langao.exe`。窗口标题是「蓝稿」。不需要另外安装 Node.js，也不需要打开浏览器。
 
 ### 从源码构建
 
@@ -180,4 +180,4 @@ node --experimental-strip-types --import ./scripts/ts-alias-hooks.mjs scripts/de
 
 Langao is an open-source, MIT-licensed desktop writing app. Leo Lee is the lead; it was made together with Grok Bot. Copyright (c) 2026 Leo Lee.
 
-It is single-user and offline: no account, no sign-in. Works, settings, and model API keys stay on the local disk (`%APPDATA%\蓝稿` on Windows). Keys are encrypted with a per-install secret. Version 2 adds a three-pane writing desk (volume/chapter tree with drag-and-drop, autosaving editor with Chinese word counts and focus mode, version history with diff and restore, character cards and a worldbuilding library with @-mentions, streaming AI writing tools, light/dark themes with five palettes), export to DOCX/EPUB/TXT/Markdown, and a one-click full data export/restore that never includes API keys. Build a Windows installer with `npm run dist:win` (set `ELECTRON_MIRROR` and `ELECTRON_BUILDER_BINARIES_MIRROR` to the npmmirror URLs above when downloading Electron from mainland China). Node.js 22.12 or newer, including Node.js 24, is supported. GitHub Releases will host the `.exe` files later; this repository does not publish them by itself. The MIT license lets you use, modify, and redistribute the software if you keep the copyright and permission notices. Issues and pull requests are welcome.
+It is single-user and offline: no account, no sign-in. Works, settings, and model API keys stay on the local disk (`%APPDATA%\蓝稿` on Windows). Keys are encrypted with a per-install secret. Version 2 adds a three-pane writing desk (volume/chapter tree with drag-and-drop, autosaving editor with Chinese word counts and focus mode, version history with diff and restore, character cards and a worldbuilding library with @-mentions, streaming AI writing tools, light/dark themes with five palettes), export to DOCX/EPUB/TXT/Markdown, and a one-click full data export/restore that never includes API keys. Build a Windows installer with `npm run dist:win` (set `ELECTRON_MIRROR` and `ELECTRON_BUILDER_BINARIES_MIRROR` to the npmmirror URLs above when downloading Electron from mainland China). Node.js 22.12 or newer, including Node.js 24, is supported. Download version 0.2.0 installers from GitHub Releases; publishing is a separate maintainer action. The MIT license lets you use, modify, and redistribute the software if you keep the copyright and permission notices. Issues and pull requests are welcome.

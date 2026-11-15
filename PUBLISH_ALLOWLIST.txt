@@ -16,6 +16,7 @@ vite.config.ts
 eslint.config.mjs
 
 允许的目录：
+screenshots/（仅根层 PNG 演示截图，供 README 引用）
 src/
 migrations/
 server/

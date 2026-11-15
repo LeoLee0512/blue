@@ -15,6 +15,10 @@ test("rejects a destination whose name starts with a dash", () => {
 });
 
 test("allowlist rejects secrets, backups, dependencies, and platform assets", () => {
+  assert.equal(includeInPublish("screenshots", true), true);
+  assert.equal(includeInPublish("screenshots/02-写作-浅色.png"), true);
+  assert.equal(includeInPublish("screenshots/private.json"), false);
+  assert.equal(includeInPublish("screenshots/subdir/private.png"), false);
   assert.equal(includeInPublish("src/lib/auth/server.ts"), true);
   assert.equal(includeInPublish("src/lib/novel/model-whitelist.ts"), true);
   assert.equal(includeInPublish(".env.example"), true);

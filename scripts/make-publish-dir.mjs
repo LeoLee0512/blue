@@ -46,6 +46,9 @@ export function includeInPublish(rel, isDirectory = false) {
   if (/(^|\/)\.env$/.test(norm) || /(^|\/)\.env\.(?!example(?:$|\/))/.test(norm)) return false;
   if (/(^|\/)preview\.ts$/.test(norm)) return false;
   if (/backup|\.bak($|_)|\.pem$|\.key$/i.test(norm)) return false;
+  // README 中的演示截图只允许 PNG，其他文件不进入干净源码包。
+  if (norm === "screenshots" && isDirectory) return true;
+  if (/^screenshots\/[^/]+\.png$/i.test(norm) && !isDirectory) return true;
   if (ROOT_FILES.has(norm)) return true;
   const withSlash = norm.endsWith("/") ? norm : `${norm}/`;
   if (isDirectory) {
