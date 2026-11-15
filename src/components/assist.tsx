@@ -27,7 +27,7 @@ export function AssistPanel() {
       <div className="space-y-3 border-b border-line p-3">
         {!connected ? (
           <div className="rounded-lg border border-line bg-sunk p-3 text-[13px] leading-relaxed text-mist">
-            <p>还没接上模型。AI 工具使用你在「模型连接」里填写的服务商和密钥，只发往白名单里的官方地址。</p>
+            <p>还没接上模型。AI 工具使用你在「设置 → 模型与 API」里填写的服务商和密钥，只发往白名单里的官方地址。</p>
             <Button size="sm" variant="secondary" className="mt-2" onClick={() => desk.setPane("connect")}>
               去连接模型
             </Button>
@@ -152,7 +152,7 @@ function JobCard({ job, onDismiss }: { job: AssistJob; onDismiss: () => void }) 
             <p className="text-[13px] leading-relaxed text-danger">{job.error}</p>
             {/密钥|连接|模型|服务商/.test(job.error) ? (
               <Button size="sm" variant="secondary" onClick={() => desk.setPane("connect")}>
-                检查模型连接
+                打开模型设置
               </Button>
             ) : null}
           </div>

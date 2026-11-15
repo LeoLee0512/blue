@@ -4,7 +4,6 @@ import { Toaster } from "sonner";
 import {
   BookOpen,
   Bot,
-  Cable,
   CalendarDays,
   DatabaseBackup,
   History,
@@ -13,17 +12,15 @@ import {
   Library,
   ListTree,
   MapPinned,
-  Moon,
   NotebookPen,
   PanelLeft,
   PanelRight,
-  Palette,
+  Settings,
   PenLine,
   Puzzle,
   Quote,
   ScrollText,
   Sparkles,
-  Sun,
   Users,
   X,
   type LucideIcon,
@@ -37,8 +34,8 @@ import { WritePane } from "@/components/write-pane";
 import { AssistPanel } from "@/components/assist";
 import { CardsPanel, LorePanel, VersionsPanel } from "@/components/side-panels";
 import { DataPane, ExportDialog } from "@/components/export-data";
-import { Bookshelf, SettingsPane, StoryPane } from "@/components/home";
-import { setPrefs, usePrefs } from "@/components/use-prefs";
+import { Bookshelf, StoryPane } from "@/components/home";
+import { usePrefs } from "@/components/use-prefs";
 import { useWriteState } from "@/components/write-store";
 import { IconButton, Empty, Button } from "@/components/ui";
 import { todayKey } from "@/lib/novel/format";
@@ -46,6 +43,8 @@ import { formatCount, readingMinutes } from "@/lib/write/wordcount";
 import { resolveDark } from "@/lib/write/prefs";
 import { cn } from "@/lib/cn";
 import { useState } from "react";
+import { SettingsPane } from "@/components/settings";
+import { isSettingsPane } from "@/lib/write/settings-nav";
 
 const WRITE_PANES: PaneId[] = ["manuscript", "studio", "review", "net", "people"];
 
@@ -64,9 +63,7 @@ const RAIL: { id: PaneId; label: string; icon: LucideIcon }[][] = [
   [
     { id: "skills", label: "技能", icon: Layers },
     { id: "plugins", label: "插件", icon: Puzzle },
-    { id: "connect", label: "模型连接", icon: Cable },
     { id: "data", label: "数据与备份", icon: DatabaseBackup },
-    { id: "settings", label: "外观", icon: Palette },
   ],
 ];
 
@@ -138,9 +135,17 @@ export function Shell({ exportReq, closeExport }: { exportReq: ExportScope | nul
               </div>
             ))}
             <div className="mt-auto flex flex-col items-center gap-1">
-              <IconButton label={dark ? "切换到浅色" : "切换到深色"} onClick={() => setPrefs({ mode: dark ? "light" : "dark" })}>
-                {dark ? <Sun className="size-[18px]" strokeWidth={1.75} /> : <Moon className="size-[18px]" strokeWidth={1.75} />}
-              </IconButton>
+              <button
+                type="button"
+                aria-label="设置"
+                title="设置：模型与 API、外观与排版"
+                aria-current={isSettingsPane(desk.pane) ? "page" : undefined}
+                onClick={() => desk.setPane("settings")}
+                className={cn("flex w-11 flex-col items-center gap-1 rounded-xl py-2 text-[11px] transition-colors", isSettingsPane(desk.pane) ? "bg-accent-soft text-accent-ink" : "text-mist hover:bg-hover hover:text-ink")}
+              >
+                <Settings className="size-[18px]" strokeWidth={1.75} />
+                设置
+              </button>
               <Link to="/about" aria-label="关于" title="关于" className="inline-flex size-9 items-center justify-center rounded-lg text-mist hover:bg-hover hover:text-ink">
                 <Info className="size-[18px]" strokeWidth={1.75} />
               </Link>
@@ -220,7 +225,7 @@ function CenterView() {
   const pane = desk.pane;
   if (pane === "library" || pane === "billing" || pane === "plan" || pane === "share") return <Bookshelf />;
   if (pane === "data") return <DataPane />;
-  if (pane === "settings") return <SettingsPane />;
+  if (isSettingsPane(pane)) return <SettingsPane />;
   if (NEEDS_BOOK.includes(pane) && !desk.detail) {
     return (
       <Empty icon={<BookOpen className="size-5" />} title="还没有打开的作品" body="先在书架上选一部，或者开一部新书。">

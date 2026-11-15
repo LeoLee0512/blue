@@ -161,14 +161,16 @@ export function StoryPane() {
   );
 }
 
-/** 外观设置。 */
-export function SettingsPane() {
+/** 设置中的外观与排版表单；沿用原有本机偏好。 */
+export function AppearanceSettings() {
   const prefs = usePrefs();
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
-      <PageHeader title="外观" body="明暗、配色和正文排版。只保存在这台电脑上，立即生效。" />
+    <div>
+      <h2 className="font-serif text-xl">外观与排版</h2>
+      <p className="mt-2 mb-6 text-[13px] leading-relaxed text-mist">明暗、配色和正文排版只保存在这台电脑上，调整后立即生效并自动保存，不需要点保存按钮。</p>
       <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
         <div className="space-y-6">
+          <h3 className="border-b border-line pb-2 text-sm font-semibold">界面主题</h3>
           <section>
             <p className="mb-2 text-[13px] font-medium text-mist">明暗</p>
             <Segmented
@@ -205,6 +207,7 @@ export function SettingsPane() {
               ))}
             </div>
           </section>
+          <h3 className="border-b border-line pb-2 text-sm font-semibold">正文排版</h3>
           <section>
             <p className="mb-2 text-[13px] font-medium text-mist">正文字体</p>
             <div className="grid grid-cols-4 gap-2">
@@ -242,7 +245,7 @@ export function SettingsPane() {
             </label>
           </section>
         </div>
-        <section className="h-fit rounded-2xl border border-line bg-page p-6 shadow-[var(--shadow-page)]">
+        <section aria-label="正文排版预览" className="h-fit rounded-2xl border border-line bg-page p-6 shadow-[var(--shadow-page)] lg:sticky lg:top-6">
           <p className="mb-4 text-[12px] text-faint">预览</p>
           <div className="manuscript manuscript-preview manuscript-col">
             <p style={{ textIndent: 0 }} className="mb-3 text-center font-semibold" >第一章{"\u3000"}雾镇</p>

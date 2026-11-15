@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { BookOpen, Cable, CalendarDays, Feather, Layers, ListTree, NotebookPen, PenLine, Puzzle, Quote, ScrollText, type LucideIcon } from "lucide-react";
+import { BookOpen, Settings, CalendarDays, Feather, Layers, ListTree, NotebookPen, PenLine, Puzzle, Quote, ScrollText, type LucideIcon } from "lucide-react";
 import { GENRES, PLUGINS, SKILLS, VOICE_SKILLS } from "@/lib/novel/catalog";
 import { countChars, childrenOf, downloadMarkdown, exportMarkdown, todayKey, openThreads, storyNet, threadPreview, chapterFact, driftNote, reviewSides } from "@/lib/novel/format";
 import { exportMyShares } from "@/lib/novel/api"; // publishText 2026-11-02 下线
@@ -25,7 +25,7 @@ export const NAV: { id: PaneId; label: string; icon: LucideIcon; mobile?: boolea
   // { id: "share", label: "分享", icon: Library }, // 2026-11-02 分享架下线
   { id: "skills", label: "技能", icon: Layers },
   { id: "plugins", label: "插件", icon: Puzzle },
-  { id: "connect", label: "模型连接", icon: Cable }, // 2026-11-04 原名「连接」
+  { id: "settings", label: "设置", icon: Settings },
   { id: "stats", label: "日历", icon: CalendarDays },
   { id: "agent", label: "代理", icon: PenLine, mobile: true },
 ];
@@ -37,7 +37,7 @@ export function NavList({ stacked }: { stacked?: boolean }) {
     <div className={stacked ? "space-y-1" : "flex gap-1"}>
       {shown.map((item) => {
         const Icon = item.icon;
-        const active = pane === item.id;
+        const active = pane === item.id || (item.id === "settings" && pane === "connect");
         return (
           <button
             key={item.id}
@@ -860,7 +860,7 @@ function PluginsPane() {
 }
 
 // 2026-11-04 Sam：连接页按 Mia 白名单版设计稿改为下拉选择。旧实现保留在下方注释里（亦见 panes.tsx.bak_20261104_sam_ui）。
-function ConnectPane() {
+export function ConnectPane({ embedded = false }: { embedded?: boolean }) {
   const desk = useDesk();
   const settings = desk.account?.settings;
   const conn = settings?.connection;
@@ -895,7 +895,7 @@ function ConnectPane() {
 
   return (
     <form
-      className="mx-auto max-w-2xl space-y-4 px-4 py-6 sm:px-6"
+      className={embedded ? "space-y-4" : "mx-auto max-w-2xl space-y-4 px-4 py-6 sm:px-6"}
       onSubmit={(event) => {
         event.preventDefault();
         setResult(null);
@@ -903,7 +903,7 @@ function ConnectPane() {
       }}
     >
       <div>
-        <h2 className="font-serif text-3xl">模型连接</h2>
+        <h2 className={embedded ? "font-serif text-xl" : "font-serif text-3xl"}>模型与 API</h2>
         <p className="mt-2 text-sm leading-relaxed text-mist">蓝稿不提供模型，请从下面的名单里选择服务商和模型，并填写你在该服务商申请的密钥。调用费用由服务商直接向你收取。</p>
       </div>
 
@@ -981,7 +981,7 @@ function ConnectPane() {
         />
       </Field>
       {switched ? <p className="text-sm text-amber-700">更换了服务商，需要重新填写密钥。旧密钥不会发给新的服务商。</p> : null}
-      <p className="text-sm leading-relaxed text-faint">密钥加密保存在你的账户里，不会回显，只用于向你选的服务商发送请求。</p>
+      <p className="text-sm leading-relaxed text-faint">密钥加密保存在这台电脑上，不会回显，只用于向你选的服务商发送请求。只点「保存」不会调用模型；「保存并测试」会向服务商发起请求，可能产生费用。</p>
 
       {result ? (
         <p role="status" className={cn("text-sm leading-relaxed", result.tone === "ok" ? "text-emerald-700" : "text-amber-700")}>

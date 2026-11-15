@@ -193,7 +193,7 @@ export function DataPane() {
           <h2 className="mt-3 font-serif text-lg font-semibold">一键导出全部</h2>
           <p className="mt-1 text-[13px] leading-relaxed text-mist">所有作品、卷章、历史版本、人物卡、设定、诗歌手记、文风档案，存成一个 .langao.json 文件。</p>
           <p className="mt-2 flex items-start gap-1.5 text-[12px] leading-relaxed text-ok">
-            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" /> 不包含模型密钥。恢复后需要在「模型连接」里重新填写。
+            <ShieldCheck className="mt-0.5 size-3.5 shrink-0" /> 不包含模型密钥。恢复后需要在「设置 → 模型与 API」里重新填写。
           </p>
           <Button className="mt-4" disabled={busy} onClick={() => void doExport()}>
             <Download className="size-4" /> 导出完整数据
